@@ -610,7 +610,8 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 *        extra GET attributes and bean override values
 	 * @return an InputSource to the response content XML
 	 */
-	public InputSource webFormGet(BeanWrapper bean, String url, @Nullable Map<String, ?> attributes) {
+	public InputSource webFormGet(@Nullable BeanWrapper bean, String url,
+			@Nullable Map<String, ?> attributes) {
 		try {
 			String getUrl = url;
 			if ( bean != null ) {
@@ -686,7 +687,7 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 *        the mapping of JavaBean property names to XPaths
 	 * @see #webFormGet(BeanWrapper, String, Map)
 	 */
-	public void webFormGetForBean(BeanWrapper bean, Object obj, String url,
+	public void webFormGetForBean(@Nullable BeanWrapper bean, Object obj, String url,
 			@Nullable Map<String, ?> attributes, Map<String, XPathExpression> xpathMap) {
 		InputSource is = webFormGet(bean, url, attributes);
 		Document doc;
