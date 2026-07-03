@@ -535,7 +535,7 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 *        extra POST attributes and bean override values
 	 * @return an InputSource to the response content XML
 	 */
-	public InputSource webFormPost(BeanWrapper bean, String url, Map<String, ?> attributes) {
+	public InputSource webFormPost(BeanWrapper bean, String url, @Nullable Map<String, ?> attributes) {
 		try {
 			URLConnection conn = getURLConnection(url, HTTP_METHOD_POST);
 
@@ -647,8 +647,8 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 * @param xpathMap
 	 *        the mapping of JavaBean property names to XPaths
 	 */
-	public void webFormPostForBean(BeanWrapper bean, Object obj, String url, Map<String, ?> attributes,
-			Map<String, XPathExpression> xpathMap) {
+	public void webFormPostForBean(BeanWrapper bean, Object obj, String url,
+			@Nullable Map<String, ?> attributes, Map<String, XPathExpression> xpathMap) {
 		InputSource is = webFormPost(bean, url, attributes);
 		Document doc;
 		try {
@@ -745,7 +745,7 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 * @return the extracted tracking ID, or {@code null} if none found
 	 */
 	public @Nullable Long webFormPostForTrackingId(BeanWrapper bean, String url,
-			XPathExpression trackingIdXPath, String xpath, Map<String, ?> attributes) {
+			XPathExpression trackingIdXPath, String xpath, @Nullable Map<String, ?> attributes) {
 		InputSource is = webFormPost(bean, url, attributes);
 
 		// extract the returned tracking ID via XPath
