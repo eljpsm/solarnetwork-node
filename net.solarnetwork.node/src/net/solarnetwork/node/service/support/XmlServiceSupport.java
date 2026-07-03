@@ -553,8 +553,8 @@ public class XmlServiceSupport extends HttpClientSupport {
 		}
 	}
 
-	private void writeURLEncodedBeanProperties(BeanWrapper bean, Map<String, ?> attributes, Writer out)
-			throws IOException {
+	private void writeURLEncodedBeanProperties(BeanWrapper bean, @Nullable Map<String, ?> attributes,
+			Writer out) throws IOException {
 		PropertyDescriptor[] props = bean.getPropertyDescriptors();
 		boolean propsWritten = false;
 		if ( attributes != null && attributes.containsKey(ATTR_NODE_ID) ) {
@@ -610,7 +610,7 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 *        extra GET attributes and bean override values
 	 * @return an InputSource to the response content XML
 	 */
-	public InputSource webFormGet(BeanWrapper bean, String url, Map<String, ?> attributes) {
+	public InputSource webFormGet(BeanWrapper bean, String url, @Nullable Map<String, ?> attributes) {
 		try {
 			String getUrl = url;
 			if ( bean != null ) {
@@ -686,8 +686,8 @@ public class XmlServiceSupport extends HttpClientSupport {
 	 *        the mapping of JavaBean property names to XPaths
 	 * @see #webFormGet(BeanWrapper, String, Map)
 	 */
-	public void webFormGetForBean(BeanWrapper bean, Object obj, String url, Map<String, ?> attributes,
-			Map<String, XPathExpression> xpathMap) {
+	public void webFormGetForBean(BeanWrapper bean, Object obj, String url,
+			@Nullable Map<String, ?> attributes, Map<String, XPathExpression> xpathMap) {
 		InputSource is = webFormGet(bean, url, attributes);
 		Document doc;
 		try {
