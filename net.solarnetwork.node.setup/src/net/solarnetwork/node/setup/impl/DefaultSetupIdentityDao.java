@@ -23,6 +23,8 @@
 package net.solarnetwork.node.setup.impl;
 
 import static net.solarnetwork.node.setup.SetupSettings.SETUP_TYPE_KEY;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -85,11 +88,10 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 	public static final String KEY_KEY_STORE_PASSWORD = "solarnode.keystore.pw";
 
 	private final ObjectMapper objectMapper;
-	private final AtomicReference<SetupIdentityInfo> cachedInfo = new AtomicReference<SetupIdentityInfo>(
-			null);
+	private final AtomicReference<@Nullable SetupIdentityInfo> cachedInfo = new AtomicReference<@Nullable SetupIdentityInfo>();
 	private String dataFilePath = DEFAULT_DATA_FILE_PATH;
-	private OptionalService<SettingDao> settingDao;
-	private MessageSource messageSource;
+	private @Nullable OptionalService<SettingDao> settingDao;
+	private @Nullable MessageSource messageSource;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -98,10 +100,12 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 	 *
 	 * @param objectMapper
 	 *        the object mapper to use
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public DefaultSetupIdentityDao(ObjectMapper objectMapper) {
 		super();
-		this.objectMapper = objectMapper;
+		this.objectMapper = requireNonNullArgument(objectMapper, "objectMapper");
 	}
 
 	@Override
@@ -127,7 +131,7 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 		}
 	}
 
-	private synchronized SetupIdentityInfo loadData() {
+	private synchronized @Nullable SetupIdentityInfo loadData() {
 		SetupIdentityInfo result = null;
 		File dataFile = new File(dataFilePath);
 		if ( dataFile.canRead() ) {
@@ -146,7 +150,7 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 		return result;
 	}
 
-	private SetupIdentityInfo loadLegacySettingsData() {
+	private @Nullable SetupIdentityInfo loadLegacySettingsData() {
 		SettingDao dao = (settingDao != null ? settingDao.service() : null);
 		if ( dao != null ) {
 			String nodeId = dao.getSetting(KEY_NODE_ID, SETUP_TYPE_KEY);
@@ -240,23 +244,25 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 	}
 
 	@Override
-	public BackupResourceProviderInfo providerInfo(Locale locale) {
+	public BackupResourceProviderInfo providerInfo(@Nullable Locale locale) {
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
+		final MessageSource ms = messageSource;
 		String name = "Node Identity Provider";
 		String desc = "Backs up the SolarNode identity.";
-		MessageSource ms = messageSource;
 		if ( ms != null ) {
-			name = ms.getMessage("title", null, name, locale);
-			desc = ms.getMessage("desc", null, desc, locale);
+			name = nonnull(ms.getMessage("title", null, name, loc), "Name");
+			desc = nonnull(ms.getMessage("desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceProviderInfo(getKey(), name, desc);
 	}
 
 	@Override
-	public BackupResourceInfo resourceInfo(BackupResource resource, Locale locale) {
+	public BackupResourceInfo resourceInfo(BackupResource resource, @Nullable Locale locale) {
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
+		final MessageSource ms = messageSource;
 		String desc = "Node identity information.";
-		MessageSource ms = messageSource;
 		if ( ms != null ) {
-			desc = ms.getMessage("identity.desc", null, desc, locale);
+			desc = nonnull(ms.getMessage("identity.desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceInfo(resource.getProviderKey(), resource.getBackupPath(), desc);
 	}
@@ -268,7 +274,7 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 	 *        the data file path; defaults to {@link #DEFAULT_DATA_FILE_PATH}
 	 */
 	public void setDataFilePath(String dataFilePath) {
-		this.dataFilePath = dataFilePath;
+		this.dataFilePath = (dataFilePath != null ? dataFilePath : DEFAULT_DATA_FILE_PATH);
 	}
 
 	/**
@@ -282,7 +288,7 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 	 * @param settingDao
 	 *        the DAO to use
 	 */
-	public void setSettingDao(OptionalService<SettingDao> settingDao) {
+	public void setSettingDao(@Nullable OptionalService<SettingDao> settingDao) {
 		this.settingDao = settingDao;
 	}
 
@@ -292,7 +298,7 @@ public class DefaultSetupIdentityDao implements SetupIdentityDao, BackupResource
 	 * @param messageSource
 	 *        the message source
 	 */
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 }

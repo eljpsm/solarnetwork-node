@@ -22,8 +22,11 @@
 
 package net.solarnetwork.node.setup.impl;
 
+import static java.util.Objects.requireNonNullElse;
 import static net.solarnetwork.node.setup.SetupSettings.KEY_NODE_ID;
 import static net.solarnetwork.service.OptionalService.service;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,6 +48,7 @@ import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import javax.xml.xpath.XPathExpression;
 import org.apache.commons.codec.binary.Base64InputStream;
+import org.jspecify.annotations.Nullable;
 import org.osgi.service.event.Event;
 import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.util.FileCopyUtils;
@@ -210,9 +214,9 @@ public class DefaultSetupService extends XmlServiceSupport
 	}
 
 	private final SetupIdentityDao setupIdentityDao;
-	private OptionalService<BackupManager> backupManager;
-	private OptionalService<SystemService> systemService;
-	private PKIService pkiService;
+	private @Nullable OptionalService<BackupManager> backupManager;
+	private @Nullable OptionalService<SystemService> systemService;
+	private @Nullable PKIService pkiService;
 	private String solarInUrlPrefix = DEFAULT_SOLARIN_URL_PREFIX;
 	private String solarUserUrlPrefix = DEFAULT_SOLARUSER_URL_PREFIX;
 	private int nodeCertificateExpireWarningDays = DEFAULT_CERT_EXPIRE_WARNING_DAYS;
@@ -224,10 +228,12 @@ public class DefaultSetupService extends XmlServiceSupport
 	 *
 	 * @param setupIdentityDao
 	 *        the identity DAO to use
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public DefaultSetupService(SetupIdentityDao setupIdentityDao) {
 		super();
-		this.setupIdentityDao = setupIdentityDao;
+		this.setupIdentityDao = requireNonNullArgument(setupIdentityDao, "setupIdentityDao");
 		setConnectionTimeout(60000);
 		setDisplayName("Setup Service");
 	}
@@ -273,12 +279,12 @@ public class DefaultSetupService extends XmlServiceSupport
 	}
 
 	@Override
-	public Long getNodeId() {
+	public @Nullable Long getNodeId() {
 		return setupIdentityDao.getSetupIdentityInfo().getNodeId();
 	}
 
 	@Override
-	public Principal getNodePrincipal() {
+	public @Nullable Principal getNodePrincipal() {
 		if ( pkiService == null ) {
 			return null;
 		}
@@ -291,18 +297,18 @@ public class DefaultSetupService extends XmlServiceSupport
 	}
 
 	@Override
-	public String getSolarNetHostName() {
+	public @Nullable String getSolarNetHostName() {
 		return setupIdentityDao.getSetupIdentityInfo().getSolarNetHostName();
 	}
 
 	@Override
-	public Integer getSolarNetHostPort() {
+	public @Nullable Integer getSolarNetHostPort() {
 		Integer port = setupIdentityDao.getSetupIdentityInfo().getSolarNetHostPort();
 		return (port == null ? 443 : port);
 	}
 
 	@Override
-	public String getSolarNetSolarInUrlPrefix() {
+	public @Nullable String getSolarNetSolarInUrlPrefix() {
 		return solarInUrlPrefix;
 	}
 
@@ -319,7 +325,7 @@ public class DefaultSetupService extends XmlServiceSupport
 	}
 
 	@Override
-	public String getSolarInMqttUrl() {
+	public @Nullable String getSolarInMqttUrl() {
 		String result = null;
 		NodeAppConfiguration config = getAppConfiguration();
 		if ( config != null ) {
@@ -334,13 +340,16 @@ public class DefaultSetupService extends XmlServiceSupport
 			throws InvalidVerificationCodeException {
 		log.debug("Decoding verification code {}", verificationCode);
 
-		NetworkAssociationDetails details = new NetworkAssociationDetails();
+		final NetworkAssociationDetails details = new NetworkAssociationDetails();
 
 		try {
 			JavaBeanXmlSerializer helper = new JavaBeanXmlSerializer();
 			InputStream in = new GZIPInputStream(
 					new Base64InputStream(new ByteArrayInputStream(verificationCode.getBytes())));
 			Map<String, Object> result = helper.parseXml(in);
+			if ( result == null ) {
+				return details;
+			}
 
 			// Get the host server
 			String hostName = (String) result.get(VERIFICATION_CODE_HOST_NAME);
@@ -425,16 +434,18 @@ public class DefaultSetupService extends XmlServiceSupport
 	private String getAbsoluteUrl(NetworkAssociationDetails details, SolarApplication app, String path) {
 		StringBuilder buf = new StringBuilder();
 		if ( app != SolarApplication.SolarIn ) {
-			Map<String, String> urls = (details != null && details.getNetworkServiceURLs() != null
+			Map<String, String> urls = (details.getNetworkServiceURLs() != null
 					? details.getNetworkServiceURLs()
-					: Collections.emptyMap());
+					: Map.of());
 			String base = urls.get(app.key);
 			if ( base != null ) {
 				buf.append(base);
 			}
 		}
 		if ( buf.length() < 1 ) {
-			buf.append("http").append(details.getPort() == 443 || details.isForceTLS() ? "s" : "")
+			buf.append("http").append(
+					(details.getPort() != null && details.getPort() == 443) || details.isForceTLS() ? "s"
+							: "")
 					.append("://");
 			buf.append(details.getHost()).append(":").append(details.getPort());
 			switch (app) {
@@ -451,11 +462,19 @@ public class DefaultSetupService extends XmlServiceSupport
 		return buf.toString();
 	}
 
+	private PKIService pkiService() {
+		final PKIService pkiService = this.pkiService;
+		if ( pkiService == null ) {
+			throw new SetupException("PKIService not available.");
+		}
+		return pkiService;
+	}
+
 	@Override
 	public NetworkCertificate acceptNetworkAssociation(final NetworkAssociationDetails details)
 			throws SetupException {
 		log.debug("Associating with SolarNet service {}", details);
-
+		final PKIService pkiService = pkiService();
 		try {
 			// Get confirmation code from the server
 			NetworkAssociationDetails req = new NetworkAssociationDetails(details.getUsername(),
@@ -476,12 +495,13 @@ public class DefaultSetupService extends XmlServiceSupport
 			if ( result.getNetworkCertificateStatus() == null ) {
 				// create the node's CSR based on the given subjectDN
 				log.debug("Creating node CSR for subject {}", result.getNetworkCertificateSubjectDN());
-				pkiService.generateNodeSelfSignedCertificate(result.getNetworkCertificateSubjectDN());
+				pkiService.generateNodeSelfSignedCertificate(
+						nonnull(result.getNetworkCertificateSubjectDN(), "Subject DN"));
 			} else if ( details.getKeystorePassword() != null ) {
 				log.debug("Saving node certificate for subject {}",
 						result.getNetworkCertificateSubjectDN());
-				pkiService.savePKCS12Keystore(result.getNetworkCertificate(),
-						details.getKeystorePassword());
+				pkiService.savePKCS12Keystore(nonnull(result.getNetworkCertificate(), "Certificate"),
+						nonnull(details.getKeystorePassword(), "Certificate password"));
 			}
 
 			makeBackup();
@@ -511,13 +531,13 @@ public class DefaultSetupService extends XmlServiceSupport
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return (INSTRUCTION_TOPIC_RENEW_CERTIFICATE.equalsIgnoreCase(topic)
 				|| TOPIC_SYSTEM_CONFIGURE.equalsIgnoreCase(topic));
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
 		final String topic = (instruction != null ? instruction.getTopic() : null);
 		if ( INSTRUCTION_TOPIC_RENEW_CERTIFICATE.equalsIgnoreCase(topic) ) {
 			return processRenewCertificateInstruction(instruction);
@@ -527,7 +547,7 @@ public class DefaultSetupService extends XmlServiceSupport
 		return null;
 	}
 
-	private InstructionStatus processRenewCertificateInstruction(Instruction instruction) {
+	private @Nullable InstructionStatus processRenewCertificateInstruction(Instruction instruction) {
 		PKIService pki = pkiService;
 		if ( pki == null ) {
 			return null;
@@ -542,7 +562,7 @@ public class DefaultSetupService extends XmlServiceSupport
 		try {
 			pki.saveNodeSignedCertificate(cert);
 			if ( log.isInfoEnabled() ) {
-				X509Certificate nodeCert = pki.getNodeCertificate();
+				X509Certificate nodeCert = nonnull(pki.getNodeCertificate(), "Certificate");
 				log.info("Installed node certificate {}, valid to {}", nodeCert.getSerialNumber(),
 						nodeCert.getNotAfter());
 			}
@@ -569,13 +589,17 @@ public class DefaultSetupService extends XmlServiceSupport
 		return null;
 	}
 
-	private InstructionStatus processSystemConfigureInstruction(Instruction instruction) {
+	private @Nullable InstructionStatus processSystemConfigureInstruction(Instruction instruction) {
 		final String service = instruction.getParameterValue(PARAM_SERVICE);
 		if ( !IDENTITY_SERVICE_NAME.equals(service) ) {
 			return null;
 		}
 		// get the info, sans password
-		Long nodeId = getNodeId();
+		final Long nodeId = getNodeId();
+		if ( nodeId == null ) {
+			return null;
+		}
+
 		String solarInBaseUrl = null;
 		try {
 			solarInBaseUrl = getSolarInBaseUrl();
@@ -597,6 +621,7 @@ public class DefaultSetupService extends XmlServiceSupport
 
 	@Override
 	public void renewNetworkCertificate(String password) throws SetupException {
+		final PKIService pkiService = pkiService();
 		final String keystore = pkiService.generatePKCS12KeystoreString(password);
 		final String url = getSolarInBaseUrl() + SOLAR_IN_RENEW_CERT_URL;
 		Map<String, String> data = new HashMap<String, String>(2);
@@ -623,7 +648,7 @@ public class DefaultSetupService extends XmlServiceSupport
 
 	private Map<String, Object> fetchNetworkConfiguration(String appBaseUrl) throws IOException {
 		if ( appBaseUrl == null ) {
-			return Collections.emptyMap();
+			return Map.of();
 		}
 		String url = appBaseUrl;
 		if ( url.endsWith("/") ) {
@@ -632,7 +657,7 @@ public class DefaultSetupService extends XmlServiceSupport
 		url += NETWORK_APP_CONFIGURATION_URL_PATH;
 		URLConnection conn = getURLConnection(url, "GET", "application/json");
 		String json = FileCopyUtils.copyToString(getUnicodeReaderFromURLConnection(conn));
-		return JsonUtils.getStringMap(json);
+		return requireNonNullElse(JsonUtils.getStringMap(json), Map.of());
 	}
 
 	private Map<String, String> fetchNetworkServiceUrls(String appBaseUrl) throws IOException {
@@ -700,7 +725,7 @@ public class DefaultSetupService extends XmlServiceSupport
 
 	@Override
 	public String getPingTestName() {
-		return getDisplayName();
+		return nonnull(getDisplayName(), "Display name");
 	}
 
 	@Override
@@ -724,13 +749,13 @@ public class DefaultSetupService extends XmlServiceSupport
 
 		if ( expires.isBefore(now) ) {
 			ok = false;
-			msg = getMessageSource().getMessage("error.nodeCertExpired",
+			msg = messageSource().getMessage("error.nodeCertExpired",
 					new Object[] { certDisplayName,
 							DateUtils.DISPLAY_DATE_LONG_TIME_SHORT.format(expires.atZone(zone)) },
 					Locale.getDefault());
 		} else {
 			long daysToExpire = ChronoUnit.DAYS.between(now.atZone(zone), expires.atZone(zone));
-			msg = getMessageSource().getMessage("msg.nodeCertExpiring",
+			msg = messageSource().getMessage("msg.nodeCertExpiring",
 					new Object[] { certDisplayName, daysToExpire,
 							DateUtils.DISPLAY_DATE_LONG_TIME_SHORT.format(expires.atZone(zone)) },
 					Locale.getDefault());
@@ -749,7 +774,8 @@ public class DefaultSetupService extends XmlServiceSupport
 	 *        the prefix to use; defaults to {@link #DEFAULT_SOLARIN_URL_PREFIX}
 	 */
 	public void setSolarInUrlPrefix(String solarInUrlPrefix) {
-		this.solarInUrlPrefix = solarInUrlPrefix;
+		this.solarInUrlPrefix = (solarInUrlPrefix != null ? solarInUrlPrefix
+				: DEFAULT_SOLARIN_URL_PREFIX);
 	}
 
 	/**
@@ -761,7 +787,8 @@ public class DefaultSetupService extends XmlServiceSupport
 	 * @since 1.11
 	 */
 	public void setSolarUserUrlPrefix(String solarUserUrlPrefix) {
-		this.solarUserUrlPrefix = solarUserUrlPrefix;
+		this.solarUserUrlPrefix = (solarUserUrlPrefix != null ? solarUserUrlPrefix
+				: DEFAULT_SOLARUSER_URL_PREFIX);
 	}
 
 	/**
@@ -770,7 +797,7 @@ public class DefaultSetupService extends XmlServiceSupport
 	 * @param pkiService
 	 *        the service to use
 	 */
-	public void setPkiService(PKIService pkiService) {
+	public void setPkiService(@Nullable PKIService pkiService) {
 		this.pkiService = pkiService;
 	}
 
@@ -780,7 +807,7 @@ public class DefaultSetupService extends XmlServiceSupport
 	 * @param backupManager
 	 *        the service to use
 	 */
-	public void setBackupManager(OptionalService<BackupManager> backupManager) {
+	public void setBackupManager(@Nullable OptionalService<BackupManager> backupManager) {
 		this.backupManager = backupManager;
 	}
 
@@ -815,7 +842,7 @@ public class DefaultSetupService extends XmlServiceSupport
 	 * @return the service
 	 * @since 2.3
 	 */
-	public OptionalService<SystemService> getSystemService() {
+	public @Nullable OptionalService<SystemService> getSystemService() {
 		return systemService;
 	}
 
@@ -826,7 +853,7 @@ public class DefaultSetupService extends XmlServiceSupport
 	 *        the service to set
 	 * @since 2.3
 	 */
-	public void setSystemService(OptionalService<SystemService> systemService) {
+	public void setSystemService(@Nullable OptionalService<SystemService> systemService) {
 		this.systemService = systemService;
 	}
 

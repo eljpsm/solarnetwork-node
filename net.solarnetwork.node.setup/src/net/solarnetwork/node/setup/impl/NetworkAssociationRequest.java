@@ -22,6 +22,8 @@
 
 package net.solarnetwork.node.setup.impl;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Request bean for the NetworkAssociation service.
  *
@@ -30,8 +32,8 @@ package net.solarnetwork.node.setup.impl;
  */
 public class NetworkAssociationRequest {
 
-	private String username;
-	private String key;
+	private @Nullable String username;
+	private @Nullable String key;
 
 	/**
 	 * Constructor.
@@ -45,7 +47,7 @@ public class NetworkAssociationRequest {
 	 *
 	 * @return the username
 	 */
-	public String getUsername() {
+	public @Nullable String getUsername() {
 		return username;
 	}
 
@@ -55,7 +57,7 @@ public class NetworkAssociationRequest {
 	 * @param username
 	 *        the uesrname to set
 	 */
-	public void setUsername(String username) {
+	public void setUsername(@Nullable String username) {
 		this.username = username;
 	}
 
@@ -64,7 +66,7 @@ public class NetworkAssociationRequest {
 	 *
 	 * @return the key
 	 */
-	public String getKey() {
+	public @Nullable String getKey() {
 		return key;
 	}
 
@@ -74,7 +76,7 @@ public class NetworkAssociationRequest {
 	 * @param key
 	 *        the key to set
 	 */
-	public void setKey(String key) {
+	public void setKey(@Nullable String key) {
 		this.key = key;
 	}
 

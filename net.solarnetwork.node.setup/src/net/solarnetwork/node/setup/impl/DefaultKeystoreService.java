@@ -22,6 +22,8 @@
 
 package net.solarnetwork.node.setup.impl;
 
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,6 +53,7 @@ import java.util.Locale;
 import javax.security.auth.x500.X500Principal;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Base64OutputStream;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.util.FileCopyUtils;
@@ -80,7 +83,7 @@ import net.solarnetwork.service.support.ConfigurableSSLService;
  * </p>
  *
  * @author matt
- * @version 2.1
+ * @version 2.2
  */
 public class DefaultKeystoreService extends ConfigurableSSLService
 		implements PKIService, BackupResourceProvider {
@@ -90,16 +93,37 @@ public class DefaultKeystoreService extends ConfigurableSSLService
 	/** The default value for the {@code keyStorePath} property. */
 	public static final String DEFAULT_KEY_STORE_PATH = "conf/tls/node.jks";
 
+	/**
+	 * The {@code nodeAlias} property default value.
+	 *
+	 * @since 2.2
+	 */
+	public static final String DEFAULT_NODE_ALIAS = "node";
+
+	/**
+	 * The {@code caAlias} property default value.
+	 *
+	 * @since 2.2
+	 */
+	public static final String DEFAULT_CA_ALIAS = "ca";
+
+	/**
+	 * The {@code keySize} property default value.
+	 *
+	 * @since 2.2
+	 */
+	public static final int DEFAULT_KEY_SIZE = 2048;
+
 	private static final String PKCS12_KEYSTORE_TYPE = "pkcs12";
 	private static final int PASSWORD_LENGTH = 20;
 
-	private String nodeAlias = "node";
-	private String caAlias = "ca";
-	private int keySize = 2048;
-	private MessageSource messageSource;
-
 	private final SetupIdentityDao setupIdentityDao;
 	private final CertificateService certificateService;
+
+	private String nodeAlias = DEFAULT_NODE_ALIAS;
+	private String caAlias = DEFAULT_CA_ALIAS;
+	private int keySize = DEFAULT_KEY_SIZE;
+	private @Nullable MessageSource messageSource;
 
 	/**
 	 * Constructor.
@@ -108,12 +132,14 @@ public class DefaultKeystoreService extends ConfigurableSSLService
 	 *        the DAO to use for persisting the node identity details
 	 * @param certificateService
 	 *        the service to use for managing certificates
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public DefaultKeystoreService(SetupIdentityDao setupIdentityDao,
 			CertificateService certificateService) {
 		super();
-		this.setupIdentityDao = setupIdentityDao;
-		this.certificateService = certificateService;
+		this.setupIdentityDao = requireNonNullArgument(setupIdentityDao, "setupIdentityDao");
+		this.certificateService = requireNonNullArgument(certificateService, "certificateService");
 		setKeyStorePath(DefaultKeystoreService.DEFAULT_KEY_STORE_PATH);
 		setTrustStorePassword("solarnode");
 		setKeyStorePassword(null);
@@ -164,19 +190,20 @@ public class DefaultKeystoreService extends ConfigurableSSLService
 	}
 
 	@Override
-	public BackupResourceProviderInfo providerInfo(Locale locale) {
+	public BackupResourceProviderInfo providerInfo(@Nullable Locale locale) {
 		String name = "Certificate Backup Provider";
 		String desc = "Backs up the SolarNode certificates.";
-		MessageSource ms = messageSource;
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
+		final MessageSource ms = messageSource;
 		if ( ms != null ) {
-			name = ms.getMessage("title", null, name, locale);
-			desc = ms.getMessage("desc", null, desc, locale);
+			name = nonnull(ms.getMessage("title", null, name, loc), "Name");
+			desc = nonnull(ms.getMessage("desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceProviderInfo(getKey(), name, desc);
 	}
 
 	@Override
-	public BackupResourceInfo resourceInfo(BackupResource resource, Locale locale) {
+	public BackupResourceInfo resourceInfo(BackupResource resource, @Nullable Locale locale) {
 		return new SimpleBackupResourceInfo(resource.getProviderKey(), resource.getBackupPath(), null);
 	}
 
@@ -620,30 +647,33 @@ public class DefaultKeystoreService extends ConfigurableSSLService
 	 * Set the node certificate alias.
 	 *
 	 * @param nodeAlias
-	 *        the alias to set
+	 *        the alias to set; if {@code null} then {@link #DEFAULT_NODE_ALIAS}
+	 *        will be used
 	 */
 	public void setNodeAlias(String nodeAlias) {
-		this.nodeAlias = nodeAlias;
+		this.nodeAlias = (nodeAlias != null ? nodeAlias : DEFAULT_NODE_ALIAS);
 	}
 
 	/**
 	 * Set the CA certificate alias.
 	 *
 	 * @param caAlias
-	 *        the alias to set
+	 *        the alias to set; if {@code null} then {@link #DEFAULT_CA_ALIAS}
+	 *        will be used
 	 */
 	public void setCaAlias(String caAlias) {
-		this.caAlias = caAlias;
+		this.caAlias = (caAlias != null ? caAlias : DEFAULT_CA_ALIAS);
 	}
 
 	/**
 	 * Set the key size.
 	 *
 	 * @param keySize
-	 *        the key size
+	 *        the key size; if not greater than {@code 0} then
+	 *        {@link #DEFAULT_KEY_SIZE} will be used
 	 */
 	public void setKeySize(int keySize) {
-		this.keySize = keySize;
+		this.keySize = (keySize > 0 ? keySize : DEFAULT_KEY_SIZE);
 	}
 
 	/**
@@ -652,7 +682,7 @@ public class DefaultKeystoreService extends ConfigurableSSLService
 	 * @param messageSource
 	 *        the message source to set
 	 */
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 

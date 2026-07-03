@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.setup.impl;
 
+import org.jspecify.annotations.Nullable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -39,12 +40,12 @@ public class SetupIdentityInfo {
 	public static final SetupIdentityInfo UNKNOWN_IDENTITY = new SetupIdentityInfo(null, null, null,
 			null, false, null);
 
-	private final Long nodeId;
-	private final String confirmationCode;
-	private final String solarNetHostName;
-	private final Integer solarNetHostPort;
+	private final @Nullable Long nodeId;
+	private final @Nullable String confirmationCode;
+	private final @Nullable String solarNetHostName;
+	private final @Nullable Integer solarNetHostPort;
 	private final boolean solarNetForceTls;
-	private final String keyStorePassword;
+	private final @Nullable String keyStorePassword;
 
 	/**
 	 * Constructor.
@@ -64,12 +65,12 @@ public class SetupIdentityInfo {
 	 *        the password to use for the key store
 	 */
 	@JsonCreator
-	public SetupIdentityInfo(@JsonProperty("nodeId") Long nodeId,
-			@JsonProperty("confirmationCode") String confirmationCode,
-			@JsonProperty("solarNetHostName") String solarNetHostName,
-			@JsonProperty("solarNetHostPort") Integer solarNetHostPort,
+	public SetupIdentityInfo(@JsonProperty("nodeId") @Nullable Long nodeId,
+			@JsonProperty("confirmationCode") @Nullable String confirmationCode,
+			@JsonProperty("solarNetHostName") @Nullable String solarNetHostName,
+			@JsonProperty("solarNetHostPort") @Nullable Integer solarNetHostPort,
 			@JsonProperty("solarNetForceTls") boolean solarNetForceTls,
-			@JsonProperty("keyStorePassword") String keyStorePassword) {
+			@JsonProperty("keyStorePassword") @Nullable String keyStorePassword) {
 		super();
 		this.nodeId = nodeId;
 		this.confirmationCode = confirmationCode;
@@ -86,7 +87,7 @@ public class SetupIdentityInfo {
 	 *        the new password
 	 * @return the new instance
 	 */
-	public SetupIdentityInfo withKeyStorePassword(String newPassword) {
+	public SetupIdentityInfo withKeyStorePassword(@Nullable String newPassword) {
 		return new SetupIdentityInfo(nodeId, confirmationCode, solarNetHostName, solarNetHostPort,
 				solarNetForceTls, newPassword);
 	}
@@ -110,7 +111,7 @@ public class SetupIdentityInfo {
 	}
 
 	@Override
-	public boolean equals(Object obj) {
+	public boolean equals(@Nullable Object obj) {
 		if ( this == obj ) {
 			return true;
 		}
@@ -167,7 +168,7 @@ public class SetupIdentityInfo {
 	 *
 	 * @return the node ID
 	 */
-	public Long getNodeId() {
+	public @Nullable Long getNodeId() {
 		return nodeId;
 	}
 
@@ -176,7 +177,7 @@ public class SetupIdentityInfo {
 	 *
 	 * @return the code
 	 */
-	public String getConfirmationCode() {
+	public @Nullable String getConfirmationCode() {
 		return confirmationCode;
 	}
 
@@ -185,7 +186,7 @@ public class SetupIdentityInfo {
 	 *
 	 * @return the name
 	 */
-	public String getSolarNetHostName() {
+	public @Nullable String getSolarNetHostName() {
 		return solarNetHostName;
 	}
 
@@ -194,7 +195,7 @@ public class SetupIdentityInfo {
 	 *
 	 * @return the port
 	 */
-	public Integer getSolarNetHostPort() {
+	public @Nullable Integer getSolarNetHostPort() {
 		return solarNetHostPort;
 	}
 
@@ -212,7 +213,7 @@ public class SetupIdentityInfo {
 	 *
 	 * @return the password
 	 */
-	public String getKeyStorePassword() {
+	public @Nullable String getKeyStorePassword() {
 		return keyStorePassword;
 	}
 

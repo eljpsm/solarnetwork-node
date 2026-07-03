@@ -1,7 +1,7 @@
 /* ==================================================================
- * SetupIdentityDao.java - 3/11/2017 6:51:23 AM
+ * package-info.java - 11/06/2026 7:00:00 am
  *
- * Copyright 2017 SolarNetwork.net Dev Team
+ * Copyright 2026 SolarNetwork.net Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -20,29 +20,9 @@
  * ==================================================================
  */
 
-package net.solarnetwork.node.setup.impl;
-
 /**
- * API for accessing the singleton {@link SetupIdentityInfo}.
- *
- * @author matt
- * @version 1.0
+ * Package info.
  */
-public interface SetupIdentityDao {
 
-	/**
-	 * Get the current identity.
-	 *
-	 * @return the current identity, never {@code null}
-	 */
-	SetupIdentityInfo getSetupIdentityInfo();
-
-	/**
-	 * Save identity information.
-	 *
-	 * @param info
-	 *        the information to save
-	 */
-	void saveSetupIdentityInfo(SetupIdentityInfo info);
-
-}
+@org.jspecify.annotations.NullMarked
+package net.solarnetwork.node.setup.impl;
