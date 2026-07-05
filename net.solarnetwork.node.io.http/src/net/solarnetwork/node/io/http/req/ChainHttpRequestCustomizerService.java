@@ -22,11 +22,10 @@
 
 package net.solarnetwork.node.io.http.req;
 
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.settings.GroupSettingSpecifier;
 import net.solarnetwork.settings.SettingSpecifier;
 import net.solarnetwork.settings.support.BasicGroupSettingSpecifier;
@@ -56,7 +55,6 @@ public class ChainHttpRequestCustomizerService
 
 	@Override
 	public List<SettingSpecifier> getSettingSpecifiers() {
-		// TODO Auto-generated method stub
 		List<SettingSpecifier> result = super.getSettingSpecifiers();
 
 		for ( ListIterator<SettingSpecifier> itr = result.listIterator(); itr.hasNext(); ) {
@@ -65,15 +63,14 @@ public class ChainHttpRequestCustomizerService
 					&& "serviceUids".equals(((GroupSettingSpecifier) s).getKey()) ) {
 				// replace list of UIDs with service filter
 				String[] uids = getServiceUids();
-				List<String> uidsList = (uids != null ? Arrays.asList(uids) : Collections.emptyList());
+				List<String> uidsList = (uids != null ? List.of(uids) : List.of());
 				BasicGroupSettingSpecifier uidsGroup = SettingUtils.dynamicListSettingSpecifier(
-						"serviceUids", uidsList, new SettingUtils.KeyedListCallback<String>() {
+						"serviceUids", uidsList, new SettingUtils.KeyedListCallback<>() {
 
 							@Override
-							public Collection<SettingSpecifier> mapListSettingKey(String value,
+							public Collection<SettingSpecifier> mapListSettingKey(@Nullable String value,
 									int index, String key) {
-								return Collections.singletonList(new BasicTextFieldSettingSpecifier(key,
-										null, false,
+								return List.of(new BasicTextFieldSettingSpecifier(key, null, false,
 										"(objectClass=net.solarnetwork.web.jakarta.service.HttpRequestCustomizerService)"));
 							}
 						});

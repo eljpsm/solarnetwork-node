@@ -22,17 +22,18 @@
 
 package net.solarnetwork.node.io.http.req;
 
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpRequest;
 import net.solarnetwork.security.Snws2AuthorizationBuilder;
 import net.solarnetwork.settings.SettingSpecifier;
 import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
 import net.solarnetwork.util.ByteList;
-import net.solarnetwork.util.ObjectUtils;
 import net.solarnetwork.web.jakarta.security.AuthorizationCredentialsProvider;
 import net.solarnetwork.web.jakarta.support.AuthorizationV2RequestInterceptor;
 
@@ -46,8 +47,8 @@ import net.solarnetwork.web.jakarta.support.AuthorizationV2RequestInterceptor;
 public class Snws2AuthHttpRequestCustomizerService extends BaseHttpRequestCustomizerService {
 
 	private final Clock clock;
-	private String token;
-	private String tokenSecret;
+	private @Nullable String token;
+	private @Nullable String tokenSecret;
 
 	/**
 	 * Constructor.
@@ -66,21 +67,22 @@ public class Snws2AuthHttpRequestCustomizerService extends BaseHttpRequestCustom
 	 * @param clock
 	 *        the clock to use
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public Snws2AuthHttpRequestCustomizerService(Clock clock) {
 		super();
-		this.clock = ObjectUtils.requireNonNullArgument(clock, "clock");
+		this.clock = requireNonNullArgument(clock, "clock");
 		setGroupUid(AUTHORIZATION_GROUP_UID);
 	}
 
 	@Override
-	public void configurationChanged(Map<String, Object> properties) {
+	public void configurationChanged(@Nullable Map<String, Object> properties) {
 		// nothing
 	}
 
 	@Override
-	public HttpRequest customize(HttpRequest request, ByteList body, Map<String, ?> parameters) {
+	public HttpRequest customize(HttpRequest request, @Nullable ByteList body,
+			@Nullable Map<String, ?> parameters) {
 		final String token = this.token;
 		final String tokenSecret = this.tokenSecret;
 		if ( !(request == null || token == null || token.isEmpty() || tokenSecret == null
@@ -115,10 +117,11 @@ public class Snws2AuthHttpRequestCustomizerService extends BaseHttpRequestCustom
 					});
 
 			try {
-				interceptor.intercept(request, body != null ? body.toArrayValue() : null, (req, bod) -> {
-					// we only want to modify the request, not execute it here
-					return null;
-				});
+				interceptor.intercept(request, body != null ? body.toArrayValue() : new byte[0],
+						(req, bod) -> {
+							// we only want to modify the request, not execute it here
+							return null;
+						});
 			} catch ( IOException e ) {
 				throw new RuntimeException(
 						String.format("Error computing SNWS2 Authorization header on request [%s]: %s",
@@ -148,7 +151,7 @@ public class Snws2AuthHttpRequestCustomizerService extends BaseHttpRequestCustom
 	 * @param token
 	 *        the token to set
 	 */
-	public void setToken(String token) {
+	public void setToken(@Nullable String token) {
 		this.token = token;
 	}
 
@@ -158,7 +161,7 @@ public class Snws2AuthHttpRequestCustomizerService extends BaseHttpRequestCustom
 	 * @param tokenSecret
 	 *        the token secret to set
 	 */
-	public void setTokenSecret(String tokenSecret) {
+	public void setTokenSecret(@Nullable String tokenSecret) {
 		this.tokenSecret = tokenSecret;
 	}
 

@@ -23,6 +23,7 @@
 package net.solarnetwork.node.io.http.req;
 
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.node.service.PlaceholderService;
 import net.solarnetwork.service.ExpressionService;
 import net.solarnetwork.service.OptionalService;
@@ -39,8 +40,8 @@ import net.solarnetwork.web.jakarta.service.support.AbstractHttpRequestCustomize
  */
 public abstract class BaseHttpRequestCustomizerService extends AbstractHttpRequestCustomizerService {
 
-	private OptionalService<PlaceholderService> placeholderService;
-	private OptionalServiceCollection<ExpressionService> expressionServices;
+	private @Nullable OptionalService<PlaceholderService> placeholderService;
+	private @Nullable OptionalServiceCollection<ExpressionService> expressionServices;
 
 	/**
 	 * Constructor.
@@ -57,7 +58,7 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 * @return {@literal true} if {@code s} has a placeholder template in it
 	 * @see StringUtils#NAMES_PATTERN
 	 */
-	public static boolean hasPlaceholder(String s) {
+	public static boolean hasPlaceholder(@Nullable String s) {
 		return s != null && StringUtils.NAMES_PATTERN.matcher(s).find();
 	}
 
@@ -66,10 +67,9 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 *
 	 * @param s
 	 *        the string to resolve placeholder values on
-	 * @return the resolved string, or {@literal null} if {@code s} is
-	 *         {@literal null}
+	 * @return the resolved string, or {@code null} if {@code s} is {@code null}
 	 */
-	protected String resolvePlaceholders(String s) {
+	protected @Nullable String resolvePlaceholders(@Nullable String s) {
 		return resolvePlaceholders(s, null);
 	}
 
@@ -79,11 +79,11 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 * @param s
 	 *        the string to resolve placeholder values on
 	 * @param parameters
-	 *        optional parameters to use, or {@literal null}
-	 * @return the resolved string, or {@literal null} if {@code s} is
-	 *         {@literal null}
+	 *        optional parameters to use, or {@code null}
+	 * @return the resolved string, or {@code null} if {@code s} is {@code null}
 	 */
-	protected String resolvePlaceholders(String s, Map<String, ?> parameters) {
+	protected @Nullable String resolvePlaceholders(@Nullable String s,
+			@Nullable Map<String, ?> parameters) {
 		return PlaceholderService.resolvePlaceholders(placeholderService, s, parameters);
 	}
 
@@ -92,7 +92,7 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 *
 	 * @return the service
 	 */
-	public OptionalService<PlaceholderService> getPlaceholderService() {
+	public @Nullable OptionalService<PlaceholderService> getPlaceholderService() {
 		return placeholderService;
 	}
 
@@ -102,7 +102,7 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 * @param placeholderService
 	 *        the service to set
 	 */
-	public void setPlaceholderService(OptionalService<PlaceholderService> placeholderService) {
+	public void setPlaceholderService(@Nullable OptionalService<PlaceholderService> placeholderService) {
 		this.placeholderService = placeholderService;
 	}
 
@@ -111,7 +111,7 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 *
 	 * @return the optional {@link ExpressionService} collection to use
 	 */
-	public OptionalServiceCollection<ExpressionService> getExpressionServices() {
+	public @Nullable OptionalServiceCollection<ExpressionService> getExpressionServices() {
 		return expressionServices;
 	}
 
@@ -121,7 +121,8 @@ public abstract class BaseHttpRequestCustomizerService extends AbstractHttpReque
 	 * @param expressionServices
 	 *        the optional {@link ExpressionService} collection to use
 	 */
-	public void setExpressionServices(OptionalServiceCollection<ExpressionService> expressionServices) {
+	public void setExpressionServices(
+			@Nullable OptionalServiceCollection<ExpressionService> expressionServices) {
 		this.expressionServices = expressionServices;
 	}
 
