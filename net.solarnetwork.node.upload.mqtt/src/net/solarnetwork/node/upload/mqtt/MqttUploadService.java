@@ -23,12 +23,15 @@
 package net.solarnetwork.node.upload.mqtt;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNullElse;
 import static net.solarnetwork.node.service.DatumEvents.datumEvent;
+import static net.solarnetwork.service.OptionalService.service;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +42,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventAdmin;
 import org.slf4j.LoggerFactory;
@@ -135,10 +139,10 @@ public class MqttUploadService extends BaseMqttConnectionService
 	private final OptionalService<InstructionExecutionService> instructionExecutionServiceOpt;
 	private final OptionalService<EventAdmin> eventAdminOpt;
 	private final OptionalService<DatumMetadataService> datumMetadataServiceOpt;
-	private Executor executor;
+	private @Nullable Executor executor;
 	private boolean includeVersionTag = DEFAULT_INCLUDE_VERSION_TAG;
 
-	private CompletableFuture<?> startupFuture;
+	private @Nullable CompletableFuture<?> startupFuture;
 
 	/**
 	 * Constructor.
@@ -157,6 +161,8 @@ public class MqttUploadService extends BaseMqttConnectionService
 	 *        the event admin service
 	 * @param datumMetadataService
 	 *        the datum metadata service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public MqttUploadService(MqttConnectionFactory connectionFactory, ObjectMapper objectMapper,
 			IdentityService identityService, OptionalService<ReactorService> reactorService,
@@ -165,24 +171,25 @@ public class MqttUploadService extends BaseMqttConnectionService
 			OptionalService<DatumMetadataService> datumMetadataService) {
 		super(connectionFactory, new StatTracker("SolarIn/MQTT", null,
 				LoggerFactory.getLogger(MqttUploadService.class), 100));
-		this.objectMapper = objectMapper;
-		this.identityService = identityService;
-		this.reactorServiceOpt = reactorService;
-		this.instructionExecutionServiceOpt = instructionExecutionService;
-		this.eventAdminOpt = eventAdmin;
-		this.datumMetadataServiceOpt = datumMetadataService;
+		this.objectMapper = requireNonNullArgument(objectMapper, "objectMapper");
+		this.identityService = requireNonNullArgument(identityService, "identityService");
+		this.reactorServiceOpt = requireNonNullArgument(reactorService, "reactorServiceOpt");
+		this.instructionExecutionServiceOpt = requireNonNullArgument(instructionExecutionService,
+				"instructionExecutionServiceOpt");
+		this.eventAdminOpt = requireNonNullArgument(eventAdmin, "eventAdminOpt");
+		this.datumMetadataServiceOpt = requireNonNullArgument(datumMetadataService,
+				"datumMetadataServiceOpt");
 		setPublishQos(MqttQos.AtLeastOnce);
 		getMqttConfig().setUid("SolarIn/MQTT");
 		getMqttConfig().setVersion(DEFAULT_MQTT_VERSION);
 		// we only subscribe to one topic, so set the max topic alias to a small number here
 		getMqttConfig().getProperties()
 				.addProperty(new BasicMqttProperty<Integer>(MqttPropertyType.TOPIC_ALIAS_MAXIMUM, 7));
-		//getMqttConfig().setWireLoggingEnabled(true);
 		setDisplayName("SolarIn/MQTT");
 	}
 
 	@Override
-	public String getDisplayName() {
+	public @Nullable String getDisplayName() {
 		URI uri = getMqttConfig().getServerUri();
 		if ( uri == null ) {
 			return super.getDisplayName();
@@ -259,12 +266,12 @@ public class MqttUploadService extends BaseMqttConnectionService
 		super.shutdown();
 	}
 
-	private String getMqttClientId() {
+	private @Nullable String getMqttClientId() {
 		final Long nodeId = identityService.getNodeId();
 		return (nodeId != null ? nodeId.toString() : null);
 	}
 
-	private URI getMqttUri() {
+	private @Nullable URI getMqttUri() {
 		final String uri = identityService.getSolarInMqttUrl();
 		try {
 			return new URI(uri);
@@ -283,10 +290,9 @@ public class MqttUploadService extends BaseMqttConnectionService
 	}
 
 	@Override
-	public String uploadDatum(NodeDatum datum) {
+	public @Nullable String uploadDatum(NodeDatum datum) {
 		final Long nodeId = identityService.getNodeId();
-		final DatumMetadataService datumMetadataService = OptionalService
-				.service(datumMetadataServiceOpt);
+		final DatumMetadataService datumMetadataService = service(datumMetadataServiceOpt);
 		if ( nodeId != null ) {
 			MqttConnection conn = connection();
 			if ( conn != null ) {
@@ -296,7 +302,9 @@ public class MqttUploadService extends BaseMqttConnectionService
 					JsonNode jsonData = objectMapper.valueToTree(datum);
 					ObjectDatumKind kind = datum.getKind();
 					Long objectId = (kind == ObjectDatumKind.Node ? nodeId : datum.getObjectId());
-					if ( datumMetadataService != null ) {
+					Instant ts = (datum.getTimestamp() != null ? datum.getTimestamp() : Instant.now());
+					if ( datumMetadataService != null && kind != null && objectId != null
+							&& datum.getSourceId() != null ) {
 						// try to post as stream datum, if metadata available
 						ObjectDatumStreamMetadata meta = datumMetadataService
 								.getDatumStreamMetadata(kind, objectId, datum.getSourceId());
@@ -306,7 +314,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 								DatumProperties datumProps = DatumProperties.propertiesFrom(datum, meta);
 								if ( datumProps != null ) {
 									BasicStreamDatum streamDatum = new BasicStreamDatum(
-											meta.getStreamId(), datum.getTimestamp(), datumProps);
+											meta.getStreamId(), ts, datumProps);
 									messageData = objectMapper.writeValueAsBytes(streamDatum);
 								}
 							} catch ( IllegalArgumentException e ) {
@@ -346,7 +354,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 					if ( messageData != null && messageData.length > 0 ) {
 						conn.publish(new BasicMqttMessage(topic, false, getPublishQos(), messageData))
 								.get(getMqttConfig().getConnectTimeoutSeconds(), TimeUnit.SECONDS);
-						getMqttStats().increment(
+						mqttStats().increment(
 								kind == ObjectDatumKind.Location ? SolarInCountStat.LocationDatumPosted
 										: SolarInCountStat.NodeDatumPosted);
 						postDatumUploadedEvent(datum, jsonData);
@@ -379,9 +387,10 @@ public class MqttUploadService extends BaseMqttConnectionService
 		return null;
 	}
 
-	private static boolean canLogForDatum(NodeDatum datum) {
-		return !(LOG_SOURCE_ID.equalsIgnoreCase(datum.getSourceId())
-				|| datum.getSourceId().startsWith(LOG_SOURCE_ID_PREFIX));
+	private static boolean canLogForDatum(@Nullable NodeDatum datum) {
+		final String sourceId = (datum != null ? datum.getSourceId() : null);
+		return !(sourceId == null || LOG_SOURCE_ID.equalsIgnoreCase(sourceId)
+				|| sourceId.startsWith(LOG_SOURCE_ID_PREFIX));
 	}
 
 	// post DATUM_UPLOADED events; but with the (possibly transformed) uploaded data so we show just
@@ -392,7 +401,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 		postEvent(event);
 	}
 
-	private void postEvent(Event event) {
+	private void postEvent(@Nullable Event event) {
 		EventAdmin ea = (eventAdminOpt != null ? eventAdminOpt.service() : null);
 		if ( ea == null || event == null ) {
 			return;
@@ -400,7 +409,12 @@ public class MqttUploadService extends BaseMqttConnectionService
 		ea.postEvent(event);
 	}
 
-	private boolean publishInstructionAck(MqttConnection conn, Long nodeId, Instruction instr) {
+	private StatTracker mqttStats() {
+		return nonnull(getMqttStats(), "StatTracker");
+	}
+
+	private boolean publishInstructionAck(@Nullable MqttConnection conn, @Nullable Long nodeId,
+			@Nullable Instruction instr) {
 		if ( conn != null && nodeId != null && instr != null && instr.getStatus() != null ) {
 			final ReactorService reactor = OptionalService.service(reactorServiceOpt);
 			final String topic = String.format(NODE_DATUM_TOPIC_TEMPLATE, nodeId);
@@ -409,7 +423,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 				conn.publish(new BasicMqttMessage(topic, false, getPublishQos(),
 						objectMapper.writeValueAsBytes(status)))
 						.get(getMqttConfig().getConnectTimeoutSeconds(), TimeUnit.SECONDS);
-				getMqttStats().increment(SolarInCountStat.InstructionStatusPosted);
+				mqttStats().increment(SolarInCountStat.InstructionStatusPosted);
 				log.info("Posted Instruction {} [{}] acknowledgement status: {}",
 						status.getInstructionId(), instr.getTopic(), instr.getInstructionState());
 				return true;
@@ -432,8 +446,8 @@ public class MqttUploadService extends BaseMqttConnectionService
 		return false;
 	}
 
-	private void postInstructionAck(ReactorService reactor, MqttConnection conn, Long nodeId,
-			Instruction instr) {
+	private void postInstructionAck(@Nullable ReactorService reactor, @Nullable MqttConnection conn,
+			@Nullable Long nodeId, @Nullable Instruction instr) {
 		if ( instr == null ) {
 			return;
 		}
@@ -477,7 +491,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 		}
 		final InstructionExecutionService executor = OptionalService
 				.service(instructionExecutionServiceOpt);
-		final String instructorId = identityService.getSolarInBaseUrl();
+		final String instructorId = nonnull(identityService.getSolarInBaseUrl(), "SolarIn URL");
 		try {
 			JsonNode root = objectMapper.readTree(message.getPayload());
 			JsonNode instrArray = root.path("instructions");
@@ -494,12 +508,13 @@ public class MqttUploadService extends BaseMqttConnectionService
 					if ( commonInstr == null ) {
 						continue;
 					}
-					Instruction instr = BasicInstruction.from(commonInstr, instructorId);
+					Instruction instr = nonnull(BasicInstruction.from(commonInstr, instructorId),
+							"Instruction");
 					if ( log.isInfoEnabled() ) {
 						log.info("Instruction {} {} received with parameters: {}", instr.getId(),
 								instr.getTopic(), instr.getParameterMap());
 					}
-					getMqttStats().increment(SolarInCountStat.InstructionsReceived);
+					mqttStats().increment(SolarInCountStat.InstructionsReceived);
 
 					// check for future execution date
 					final Instant executeAt = instr.getExecutionDate();
@@ -554,7 +569,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 
 	@Override
 	public String getPingTestName() {
-		return getDisplayName();
+		return requireNonNullElse(getDisplayName(), getClass().getSimpleName());
 	}
 
 	@Override
@@ -564,13 +579,13 @@ public class MqttUploadService extends BaseMqttConnectionService
 		if ( r.getProperties() != null ) {
 			props.putAll(r.getProperties());
 		}
-		props.putAll(getMqttStats().allCounts());
+		props.putAll(mqttStats().allCounts());
 		return new PingTestResult(r.isSuccess(), r.getMessage(), props);
 	}
 
 	@Override
 	public void onMqttServerConnectionLost(MqttConnection connection, boolean willReconnect,
-			Throwable cause) {
+			@Nullable Throwable cause) {
 		// ignore
 	}
 
@@ -604,19 +619,19 @@ public class MqttUploadService extends BaseMqttConnectionService
 	public List<SettingSpecifier> getSettingSpecifiers() {
 		SettingSpecifier stats = new BasicTitleSettingSpecifier("status", getStatusMessage(), true,
 				true);
-		return Collections.singletonList(stats);
+		return List.of(stats);
 	}
 
 	private String getStatusMessage() {
 		final MqttConnection conn = connection();
 		final boolean connected = (conn != null ? conn.isEstablished() : false);
-		final String connMsg = getMessageSource().getMessage(
+		final String connMsg = messageSource().getMessage(
 				format("status.%s", connected ? "connected" : "disconnected"), null,
 				Locale.getDefault());
 		final URI uri = getMqttUri();
-		final StatTracker s = getMqttStats();
+		final StatTracker s = mqttStats();
 		// @formatter:off
-		return getMessageSource().getMessage("status.msg",
+		return messageSource().getMessage("status.msg",
 				new Object[] {
 						connMsg,
 						uri != null ? uri : "N/A",
@@ -637,7 +652,7 @@ public class MqttUploadService extends BaseMqttConnectionService
 	 *        the executor
 	 * @since 1.2
 	 */
-	public void setExecutor(Executor executor) {
+	public void setExecutor(@Nullable Executor executor) {
 		this.executor = executor;
 	}
 
