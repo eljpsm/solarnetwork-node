@@ -23,6 +23,7 @@
 package net.solarnetwork.node.service.support;
 
 import static net.solarnetwork.security.AuthorizationUtils.AUTHORIZATION_DATE_HEADER_FORMATTER;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -354,6 +355,18 @@ public abstract class HttpClientSupport extends BaseIdentifiable {
 	 */
 	public final int getConnectionTimeout() {
 		return connectionTimeout;
+	}
+
+	/**
+	 * Get the identity service, presumed non-null.
+	 *
+	 * @return the service
+	 * @throws IllegalStateException
+	 *         if the identity service is not available
+	 * @since 1.3
+	 */
+	public final IdentityService identityService() {
+		return nonnull(identityService, "IdentityService");
 	}
 
 	/**
