@@ -366,8 +366,8 @@ public abstract class BaseSolarPkgPlatformPackageService extends BasePlatformPac
 
 	@Override
 	public <T> Future<PlatformPackageResult<T>> installNamedPackage(String name,
-			@Nullable String version, Path baseDirectory, @Nullable ProgressListener<T> progressListener,
-			@Nullable T context) {
+			@Nullable String version, @Nullable Path baseDirectory,
+			@Nullable ProgressListener<T> progressListener, @Nullable T context) {
 		Callable<PlatformPackageResult<T>> task = new Callable<PlatformPackageService.PlatformPackageResult<T>>() {
 
 			@Override

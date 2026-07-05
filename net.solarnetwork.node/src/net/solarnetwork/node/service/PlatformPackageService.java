@@ -209,7 +209,8 @@ public interface PlatformPackageService {
 	 *        the package version to install, or {@code null} for the highest
 	 *        available version
 	 * @param baseDirectory
-	 *        a "base" directory to resolve relative file paths against
+	 *        a "base" directory to resolve relative file paths against, or
+	 *        {@code null} for a service default
 	 * @param progressListener
 	 *        an optional listener of the progress of extracting the package
 	 * @param context
@@ -218,7 +219,8 @@ public interface PlatformPackageService {
 	 * @return a future for the package installation results
 	 */
 	<T> Future<PlatformPackageResult<T>> installNamedPackage(String name, @Nullable String version,
-			Path baseDirectory, @Nullable ProgressListener<T> progressListener, @Nullable T context);
+			@Nullable Path baseDirectory, @Nullable ProgressListener<T> progressListener,
+			@Nullable T context);
 
 	/**
 	 * Remove a named package.

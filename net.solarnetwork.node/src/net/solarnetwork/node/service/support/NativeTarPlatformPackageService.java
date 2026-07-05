@@ -195,8 +195,8 @@ public class NativeTarPlatformPackageService extends BasePlatformPackageService 
 
 	@Override
 	public <T> Future<PlatformPackageResult<T>> installNamedPackage(String name,
-			@Nullable String version, Path baseDirectory, @Nullable ProgressListener<T> progressListener,
-			@Nullable T context) {
+			@Nullable String version, @Nullable Path baseDirectory,
+			@Nullable ProgressListener<T> progressListener, @Nullable T context) {
 		throw new UnsupportedOperationException();
 	}
 
