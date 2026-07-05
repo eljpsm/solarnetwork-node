@@ -27,6 +27,7 @@ import static net.solarnetwork.node.setup.web.thymeleaf.ThymeleafUtils.evaulateI
 import static net.solarnetwork.node.setup.web.thymeleaf.ThymeleafUtils.evaulateStringAttributeExpression;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.NoSuchMessageException;
 import org.thymeleaf.context.ITemplateContext;
@@ -131,7 +132,7 @@ public class MessageElementTagProcessor extends AbstractElementTagProcessor
 		}
 	}
 
-	private MessageSource messageSource(ITemplateContext context, IProcessableElementTag tag) {
+	private @Nullable MessageSource messageSource(ITemplateContext context, IProcessableElementTag tag) {
 		Object val = ThymeleafUtils.evaulateAttributeExpression(context, tag,
 				MESSAGE_SOURCE_ATTRIBUTE_NAME, false);
 		if ( val instanceof MessageSource ms ) {
@@ -140,7 +141,7 @@ public class MessageElementTagProcessor extends AbstractElementTagProcessor
 		return null;
 	}
 
-	private Object[] arguments(ITemplateContext context, IProcessableElementTag tag) {
+	private Object @Nullable [] arguments(ITemplateContext context, IProcessableElementTag tag) {
 		Object val = ThymeleafUtils.evaulateAttributeExpression(context, tag, ARGUMENTS_ATTRIBUTE_NAME,
 				false);
 		if ( val != null && val.getClass().isArray() ) {

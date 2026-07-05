@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.util.EscapedAttributeUtils;
@@ -75,7 +76,7 @@ public final class SolarNodeUtils {
 	 *        the class name to test
 	 * @return boolean
 	 */
-	public boolean instanceOf(Object o, String className) {
+	public boolean instanceOf(@Nullable Object o, @Nullable String className) {
 		if ( o == null || className == null ) {
 			return false;
 		}
@@ -99,7 +100,8 @@ public final class SolarNodeUtils {
 	 *        the desired locale
 	 * @return the message
 	 */
-	public Object message(String key, MessageSource messageSource, Locale locale) {
+	public @Nullable Object message(@Nullable String key, @Nullable MessageSource messageSource,
+			Locale locale) {
 		return message(key, null, null, messageSource, locale);
 	}
 
@@ -116,8 +118,8 @@ public final class SolarNodeUtils {
 	 *        the desired locale
 	 * @return the message
 	 */
-	public Object message(String key, String defaultMessage, MessageSource messageSource,
-			Locale locale) {
+	public @Nullable Object message(@Nullable String key, @Nullable String defaultMessage,
+			@Nullable MessageSource messageSource, Locale locale) {
 		return message(key, null, defaultMessage, messageSource, locale);
 	}
 
@@ -134,7 +136,8 @@ public final class SolarNodeUtils {
 	 *        the desired locale
 	 * @return the message
 	 */
-	public Object message(String key, Object[] arguments, MessageSource messageSource, Locale locale) {
+	public @Nullable Object message(@Nullable String key, Object @Nullable [] arguments,
+			@Nullable MessageSource messageSource, Locale locale) {
 		return message(key, arguments, null, messageSource, locale);
 	}
 
@@ -153,8 +156,8 @@ public final class SolarNodeUtils {
 	 *        the desired locale
 	 * @return the message
 	 */
-	public Object message(String key, Object[] arguments, String defaultMessage,
-			MessageSource messageSource, Locale locale) {
+	public @Nullable Object message(@Nullable String key, Object @Nullable [] arguments,
+			@Nullable String defaultMessage, @Nullable MessageSource messageSource, Locale locale) {
 		if ( key == null || messageSource == null || key.isBlank() ) {
 			return null;
 		}
@@ -181,8 +184,8 @@ public final class SolarNodeUtils {
 	 *        the setting specifier
 	 * @return the current setting value
 	 */
-	public Object settingValue(SettingsService service, SettingSpecifierProvider provider,
-			SettingSpecifier setting) {
+	public @Nullable Object settingValue(@Nullable SettingsService service,
+			@Nullable SettingSpecifierProvider provider, @Nullable SettingSpecifier setting) {
 		if ( service == null || provider == null || setting == null ) {
 			return null;
 		}
@@ -206,7 +209,8 @@ public final class SolarNodeUtils {
 	 *         {@link ToggleSettingSpecifier#getTrueValue()}
 	 * @since 1.1
 	 */
-	public boolean isToggleSettingValueTrue(Object settingValue, SettingSpecifier setting) {
+	public boolean isToggleSettingValueTrue(@Nullable Object settingValue,
+			@Nullable SettingSpecifier setting) {
 		if ( settingValue == null || !(setting instanceof ToggleSettingSpecifier toggle) ) {
 			return false;
 		}
@@ -219,7 +223,7 @@ public final class SolarNodeUtils {
 			return StringUtils.parseBoolean(settingValue.toString()) == boolTrueValue;
 		}
 		// fall back to string comparison
-		return settingValue.toString().equals(trueValue.toString());
+		return (trueValue != null && settingValue.toString().equals(trueValue.toString()));
 	}
 
 	/**
@@ -229,7 +233,7 @@ public final class SolarNodeUtils {
 	 *        the setting to inspect
 	 * @return the primary setting type
 	 */
-	public String settingType(SettingSpecifier setting) {
+	public @Nullable String settingType(SettingSpecifier setting) {
 		String[] result = settingTypeCache.get(setting.getClass());
 		if ( result != null ) {
 			return (result.length > 0 ? result[0] : null);

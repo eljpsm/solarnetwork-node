@@ -64,7 +64,7 @@ public final class ThymeleafUtils {
 	 *        {@code true} to evaluate in restricted mode
 	 * @return the evaluation result
 	 */
-	public static String evaulateStringAttributeExpression(final ITemplateContext context,
+	public static @Nullable String evaulateStringAttributeExpression(final ITemplateContext context,
 			final IProcessableElementTag tag, final String attributeName,
 			final boolean restrictedExpressionExecution) {
 		if ( !tag.hasAttribute(attributeName) ) {
@@ -90,7 +90,7 @@ public final class ThymeleafUtils {
 	 *        {@code true} to evaluate in restricted mode
 	 * @return the evaluation result
 	 */
-	public static Integer evaulateIntegerAttributeExpression(final ITemplateContext context,
+	public static @Nullable Integer evaulateIntegerAttributeExpression(final ITemplateContext context,
 			final IProcessableElementTag tag, final String attributeName,
 			final boolean restrictedExpressionExecution) {
 		if ( !tag.hasAttribute(attributeName) ) {
@@ -125,7 +125,7 @@ public final class ThymeleafUtils {
 	 *        {@code true} to evaluate in restricted mode
 	 * @return the evaluation result
 	 */
-	public static Object evaulateAttributeExpression(final ITemplateContext context,
+	public static @Nullable Object evaulateAttributeExpression(final ITemplateContext context,
 			final IProcessableElementTag tag, final String attributeName,
 			final boolean restrictedExpressionExecution) {
 		if ( !tag.hasAttribute(attributeName) ) {
@@ -209,7 +209,7 @@ public final class ThymeleafUtils {
 	 * @return the evaluated attributes, never {@code null}
 	 */
 	public static Map<String, Object> dynamicAttributes(ITemplateContext context,
-			IProcessableElementTag tag, Predicate<IAttribute> filter) {
+			IProcessableElementTag tag, @Nullable Predicate<IAttribute> filter) {
 		Map<String, Object> result = new HashMap<>(8);
 		for ( IAttribute attr : tag.getAllAttributes() ) {
 			if ( filter == null || filter.test(attr) ) {

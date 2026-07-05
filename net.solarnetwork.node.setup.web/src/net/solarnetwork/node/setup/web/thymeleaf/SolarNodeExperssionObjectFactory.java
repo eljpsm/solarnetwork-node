@@ -23,6 +23,7 @@
 package net.solarnetwork.node.setup.web.thymeleaf;
 
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.thymeleaf.context.IExpressionContext;
 import org.thymeleaf.expression.IExpressionObjectFactory;
 
@@ -58,7 +59,7 @@ public class SolarNodeExperssionObjectFactory implements IExpressionObjectFactor
 	}
 
 	@Override
-	public Object buildObject(IExpressionContext context, String expressionObjectName) {
+	public @Nullable Object buildObject(IExpressionContext context, String expressionObjectName) {
 		if ( SN_UTILS_EXPRESSION_OBJECT_NAME.equals(expressionObjectName) ) {
 			return SolarNodeUtils.INSTANCE;
 		}

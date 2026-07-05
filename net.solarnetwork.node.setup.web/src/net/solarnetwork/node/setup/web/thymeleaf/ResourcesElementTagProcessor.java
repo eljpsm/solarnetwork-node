@@ -30,6 +30,7 @@ import static org.springframework.web.util.UriUtils.encodePathSegment;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.security.core.Authentication;
 import org.thymeleaf.context.ITemplateContext;
@@ -134,7 +135,7 @@ public class ResourcesElementTagProcessor extends AbstractElementTagProcessor
 		final IModel output = modelFactory.createModel();
 
 		for ( SetupResource rsrc : resources ) {
-			if ( !type.equals(rsrc.getContentType()) ) {
+			if ( type == null || !type.equals(rsrc.getContentType()) ) {
 				continue;
 			}
 			if ( !hasRequiredyRole(context, rsrc) ) {
@@ -215,12 +216,13 @@ public class ResourcesElementTagProcessor extends AbstractElementTagProcessor
 	 *        the resource to test
 	 * @return {@code true} if the resource matches the {@code scope}
 	 */
-	public static boolean hasRequiredScope(String scope, SetupResource rsrc) {
+	public static boolean hasRequiredScope(@Nullable String scope, SetupResource rsrc) {
 		final SetupResourceScope rsrcScope = rsrc.getScope();
 		if ( (scope == null || scope.isBlank())
 				&& (rsrcScope == null || rsrcScope.equals(SetupResourceScope.Default)) ) {
 			return true;
-		} else if ( scope != null && scope.equalsIgnoreCase(rsrcScope.toString()) ) {
+		} else if ( scope != null && rsrcScope != null
+				&& scope.equalsIgnoreCase(rsrcScope.toString()) ) {
 			return true;
 		}
 		return false;

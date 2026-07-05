@@ -135,7 +135,7 @@ public class InlineResourcesElementModelProcessor extends AbstractElementModelPr
 		final IModelFactory modelFactory = context.getModelFactory();
 
 		for ( SetupResource rsrc : resources ) {
-			if ( !type.equals(rsrc.getContentType()) ) {
+			if ( type == null || !type.equals(rsrc.getContentType()) ) {
 				continue;
 			}
 			if ( !ResourcesElementTagProcessor.hasRequiredyRole(context, rsrc) ) {
