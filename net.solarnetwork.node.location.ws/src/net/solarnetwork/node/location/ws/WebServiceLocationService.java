@@ -23,6 +23,8 @@
 package net.solarnetwork.node.location.ws;
 
 import static java.lang.String.valueOf;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.domain.KeyValuePair;
 import net.solarnetwork.domain.Location;
 import net.solarnetwork.domain.SimpleLocation;
@@ -49,7 +52,7 @@ import net.solarnetwork.util.CachedResult;
  * Web service implementation of {@link WebServiceLocationService}.
  *
  * @author matt
- * @version 2.1
+ * @version 2.2
  */
 public class WebServiceLocationService extends JsonHttpClientSupport
 		implements LocationService, SettingSpecifierProvider {
@@ -92,16 +95,23 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	 */
 	public static final double DEFAULT_MIN_LAT_LON_DEVIATION = 20.0;
 
+	/**
+	 * The {@code url} property default value.
+	 *
+	 * @since 2.2
+	 */
+	public static final String DEFAULT_URL = "/api/v1/sec/location";
+
 	private final ConcurrentHashMap<String, CachedLocation> cache = new ConcurrentHashMap<String, CachedLocation>(
 			2);
 
 	private final SettingDao settingDao;
-	private String url = "/api/v1/sec/location";
+	private String url = DEFAULT_URL;
 	private Long cacheTtl = DEFAULT_CACHE_TTL;
 	private double minLatLonDeviation = DEFAULT_MIN_LAT_LON_DEVIATION;
 
-	private CachedResult<Location> cachedNodeLocation;
-	private Location nodeLocation;
+	private @Nullable CachedResult<Location> cachedNodeLocation;
+	private @Nullable Location nodeLocation;
 
 	/**
 	 * Constructor.
@@ -113,10 +123,7 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	 */
 	public WebServiceLocationService(SettingDao settingDao) {
 		super();
-		if ( settingDao == null ) {
-			throw new IllegalArgumentException("The settingDao argument must not be null.");
-		}
-		this.settingDao = settingDao;
+		this.settingDao = requireNonNullArgument(settingDao, "settingDao");
 	}
 
 	/**
@@ -144,9 +151,9 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 		nodeLocation = new net.solarnetwork.domain.BasicLocation(loc);
 	}
 
-	private String locationSourceMetadataUrl(String query, Long locationId, String sourceId,
-			Set<String> tags) {
-		StringBuilder buf = new StringBuilder(getIdentityService().getSolarInBaseUrl());
+	private String locationSourceMetadataUrl(@Nullable String query, @Nullable Long locationId,
+			@Nullable String sourceId, @Nullable Set<String> tags) {
+		StringBuilder buf = new StringBuilder(solarInUrl());
 		buf.append(url);
 		StringBuilder q = new StringBuilder();
 		if ( query != null ) {
@@ -169,7 +176,7 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 		return buf.toString();
 	}
 
-	private CachedLocation getCachedLocation(String key) {
+	private @Nullable CachedLocation getCachedLocation(String key) {
 		CachedLocation cachedLocation = cache.get(key);
 		if ( cachedLocation != null ) {
 			if ( cachedLocation.expires > System.currentTimeMillis() ) {
@@ -182,12 +189,14 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public Collection<GeneralLocationSourceMetadata> findLocationMetadata(String query, String sourceId,
-			Set<String> tags) {
+	public Collection<GeneralLocationSourceMetadata> findLocationMetadata(String query,
+			@Nullable String sourceId, @Nullable Set<String> tags) {
 		final String url = locationSourceMetadataUrl(query, null, sourceId, tags);
 		try {
 			final InputStream in = jsonGET(url);
-			return extractCollectionResponseData(in, GeneralLocationSourceMetadata.class);
+			Collection<GeneralLocationSourceMetadata> result = extractCollectionResponseData(in,
+					GeneralLocationSourceMetadata.class);
+			return (result != null ? result : List.of());
 		} catch ( IOException e ) {
 			if ( log.isTraceEnabled() ) {
 				log.trace("IOException querying for location source metadata at " + url, e);
@@ -198,8 +207,12 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 		}
 	}
 
-	private String locationSourceMetadataUrl(Long locationId, String sourceId) {
-		StringBuilder buf = new StringBuilder(getIdentityService().getSolarInBaseUrl());
+	private String solarInUrl() {
+		return nonnull(identityService().getSolarInBaseUrl(), "SolarIn URL");
+	}
+
+	private String locationSourceMetadataUrl(@Nullable Long locationId, @Nullable String sourceId) {
+		StringBuilder buf = new StringBuilder(solarInUrl());
 		buf.append(url);
 		if ( locationId != null ) {
 			buf.append('/').append(locationId);
@@ -215,7 +228,8 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public GeneralLocationSourceMetadata getLocationMetadata(Long locationId, String sourceId) {
+	public @Nullable GeneralLocationSourceMetadata getLocationMetadata(Long locationId,
+			String sourceId) {
 		final String url = locationSourceMetadataUrl(locationId, sourceId);
 		final String cacheKey = url;
 		CachedLocation cached = getCachedLocation(cacheKey);
@@ -227,6 +241,9 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 			final InputStream in = jsonGET(url);
 			GeneralLocationSourceMetadata meta = extractResponseData(in,
 					GeneralLocationSourceMetadata.class);
+			if ( meta == null ) {
+				return null;
+			}
 			CachedLocation cachedLocation = new CachedLocation(meta,
 					System.currentTimeMillis() + cacheTtl);
 			cache.put(cacheKey, cachedLocation);
@@ -242,21 +259,21 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	}
 
 	private String locationUpdateUrl() {
-		StringBuilder buf = new StringBuilder(getIdentityService().getSolarInBaseUrl());
+		StringBuilder buf = new StringBuilder(solarInUrl());
 		buf.append(url);
 		buf.append("/update");
 		return buf.toString();
 	}
 
 	private String locationViewUrl() {
-		StringBuilder buf = new StringBuilder(getIdentityService().getSolarInBaseUrl());
+		StringBuilder buf = new StringBuilder(solarInUrl());
 		buf.append(url);
 		buf.append("/view");
 		return buf.toString();
 	}
 
 	@Override
-	public synchronized Location getNodeLocation() {
+	public synchronized @Nullable Location getNodeLocation() {
 		if ( cachedNodeLocation != null && cachedNodeLocation.isValid() ) {
 			return cachedNodeLocation.getResult();
 		}
@@ -291,12 +308,18 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 				location.getElevation());
 		try (InputStream in = jsonPOST(url, location)) {
 			extractResponseData(in, Object.class);
-			settingDao.storeSetting(SETTING_GROUP_LOCATION, SETTING_LATITUDE,
-					location.getLatitude().toPlainString());
-			settingDao.storeSetting(SETTING_GROUP_LOCATION, SETTING_LONGITUDE,
-					location.getLongitude().toPlainString());
-			settingDao.storeSetting(SETTING_GROUP_LOCATION, SETTING_ELEVATION,
-					location.getElevation().toPlainString());
+			if ( location.getLatitude() != null ) {
+				settingDao.storeSetting(SETTING_GROUP_LOCATION, SETTING_LATITUDE,
+						location.getLatitude().toPlainString());
+			}
+			if ( location.getLongitude() != null ) {
+				settingDao.storeSetting(SETTING_GROUP_LOCATION, SETTING_LONGITUDE,
+						location.getLongitude().toPlainString());
+			}
+			if ( location.getElevation() != null ) {
+				settingDao.storeSetting(SETTING_GROUP_LOCATION, SETTING_ELEVATION,
+						location.getElevation().toPlainString());
+			}
 			this.nodeLocation = new net.solarnetwork.domain.BasicLocation(location);
 		} catch ( IOException e ) {
 			if ( log.isTraceEnabled() ) {
@@ -310,8 +333,8 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 
 	private static final double EARTH_RADIUS = 6_378_137.0;
 
-	private double distanceBetween(net.solarnetwork.domain.Location loc1,
-			net.solarnetwork.domain.Location loc2) {
+	private double distanceBetween(net.solarnetwork.domain.@Nullable Location loc1,
+			net.solarnetwork.domain.@Nullable Location loc2) {
 		if ( loc1 == null || loc2 == null || loc1.getLatitude() == null || loc1.getLongitude() == null
 				|| loc2.getLatitude() == null || loc2.getLongitude() == null ) {
 			return -1;
@@ -402,7 +425,7 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	 *        the URL to set
 	 */
 	public void setUrl(String url) {
-		this.url = url;
+		this.url = (url != null ? url : DEFAULT_URL);
 	}
 
 	/**
@@ -418,10 +441,11 @@ public class WebServiceLocationService extends JsonHttpClientSupport
 	 * Set the cache TTL.
 	 *
 	 * @param cacheTtl
-	 *        the cache TTL to set
+	 *        the cache TTL to set; if {@code null} then
+	 *        {@link #DEFAULT_CACHE_TTL} will be used
 	 */
 	public void setCacheTtl(Long cacheTtl) {
-		this.cacheTtl = cacheTtl;
+		this.cacheTtl = (cacheTtl != null ? cacheTtl : DEFAULT_CACHE_TTL);
 	}
 
 	/**
