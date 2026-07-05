@@ -37,6 +37,7 @@ import org.jspecify.annotations.Nullable;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.solarnetwork.service.RemoteServiceException;
+import net.solarnetwork.util.ObjectUtils;
 
 /**
  * An abstract class to support HTTP based services that use JSON.
@@ -56,7 +57,7 @@ import net.solarnetwork.service.RemoteServiceException;
  * </dl>
  *
  * @author matt
- * @version 1.4
+ * @version 1.5
  */
 public abstract class JsonHttpClientSupport extends HttpClientSupport {
 
@@ -374,6 +375,18 @@ public abstract class JsonHttpClientSupport extends HttpClientSupport {
 				in.close();
 			}
 		}
+	}
+
+	/**
+	 * Get the JSON mapper, presumed non-null.
+	 *
+	 * @return the mapper
+	 * @throws IllegalStateException
+	 *         if the mapper is not available
+	 * @since 1.5
+	 */
+	public final ObjectMapper objectMapper() {
+		return ObjectUtils.nonnull(objectMapper, "ObjectMapper");
 	}
 
 	/**

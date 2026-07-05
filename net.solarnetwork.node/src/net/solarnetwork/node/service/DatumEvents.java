@@ -74,7 +74,7 @@ public final class DatumEvents {
 	 *         {@code null} or empty
 	 */
 	public static @Nullable Event datumEvent(String topic, Class<? extends Datum> clazz,
-			Map<String, ?> datumMap) {
+			@Nullable Map<String, ?> datumMap) {
 		if ( datumMap == null || datumMap.isEmpty() ) {
 			return null;
 		}
