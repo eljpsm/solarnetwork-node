@@ -205,7 +205,7 @@ public abstract class BaseSolarPkgPlatformPackageService extends BasePlatformPac
 	 *        the arguments
 	 * @return the command as a list
 	 */
-	protected List<String> pkgCommand(Action action, String @Nullable... args) {
+	protected List<String> pkgCommand(Action action, @Nullable String @Nullable... args) {
 		List<String> result = new ArrayList<>(2 + (args != null ? args.length : 0));
 		result.add(getCommand());
 		result.add(action.getCommand());
@@ -365,8 +365,9 @@ public abstract class BaseSolarPkgPlatformPackageService extends BasePlatformPac
 	}
 
 	@Override
-	public <T> Future<PlatformPackageResult<T>> installNamedPackage(String name, String version,
-			Path baseDirectory, @Nullable ProgressListener<T> progressListener, @Nullable T context) {
+	public <T> Future<PlatformPackageResult<T>> installNamedPackage(String name,
+			@Nullable String version, Path baseDirectory, @Nullable ProgressListener<T> progressListener,
+			@Nullable T context) {
 		Callable<PlatformPackageResult<T>> task = new Callable<PlatformPackageService.PlatformPackageResult<T>>() {
 
 			@Override

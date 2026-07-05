@@ -217,7 +217,7 @@ public interface PlatformPackageService {
 	 *        in the result; may be {@code null}
 	 * @return a future for the package installation results
 	 */
-	<T> Future<PlatformPackageResult<T>> installNamedPackage(String name, String version,
+	<T> Future<PlatformPackageResult<T>> installNamedPackage(String name, @Nullable String version,
 			Path baseDirectory, @Nullable ProgressListener<T> progressListener, @Nullable T context);
 
 	/**
