@@ -25,6 +25,7 @@ package net.solarnetwork.node.io.s3;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static net.solarnetwork.settings.support.SettingUtils.mappedWithPrefix;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.core.io.Resource;
 import net.solarnetwork.common.s3.S3ResourceStorageService;
@@ -67,11 +69,13 @@ public class NodeS3ResourceStorageService extends BaseIdentifiable
 	 *        service the identity service
 	 * @param executor
 	 *        the executor
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public NodeS3ResourceStorageService(OptionalService<IdentityService> identityService,
 			Executor executor) {
 		super();
-		this.identityService = identityService;
+		this.identityService = requireNonNullArgument(identityService, "identityService");
 		this.delegate = new S3ResourceStorageService(executor);
 		this.delegate.setS3Client(new SdkS3Client());
 		this.nodeIdPrefix = true;
@@ -85,11 +89,11 @@ public class NodeS3ResourceStorageService extends BaseIdentifiable
 	}
 
 	@Override
-	public void configurationChanged(Map<String, Object> properties) {
+	public void configurationChanged(@Nullable Map<String, Object> properties) {
 		this.delegate.configurationChanged(properties);
 	}
 
-	private String pathPrefix() {
+	private @Nullable String pathPrefix() {
 		String prefix = delegate.getObjectKeyPrefix();
 		if ( nodeIdPrefix ) {
 			IdentityService s = identityService.service();
@@ -107,14 +111,14 @@ public class NodeS3ResourceStorageService extends BaseIdentifiable
 		return prefix;
 	}
 
-	private String mapPathPrefix(String prefix, String path) {
+	private @Nullable String mapPathPrefix(@Nullable String prefix, @Nullable String path) {
 		if ( path != null && prefix != null && !path.startsWith(prefix) ) {
 			return prefix + path;
 		}
 		return path;
 	}
 
-	private Function<String, String> pathPrefixMapper() {
+	private Function<@Nullable String, @Nullable String> pathPrefixMapper() {
 		final String prefix = pathPrefix();
 		return s -> mapPathPrefix(prefix, s);
 	}
@@ -145,21 +149,24 @@ public class NodeS3ResourceStorageService extends BaseIdentifiable
 	}
 
 	@Override
-	public CompletableFuture<Iterable<Resource>> listResources(String pathPrefix) {
+	public CompletableFuture<Iterable<Resource>> listResources(@Nullable String pathPrefix) {
 		String prefix = pathPrefixMapper().apply(pathPrefix);
 		return delegate.listResources(prefix);
 	}
 
 	@Override
-	public URL resourceStorageUrl(String path) {
+	public @Nullable URL resourceStorageUrl(String path) {
 		String p = pathPrefixMapper().apply(path);
-		return delegate.resourceStorageUrl(p);
+		return (p != null ? delegate.resourceStorageUrl(p) : null);
 	}
 
 	@Override
 	public CompletableFuture<Boolean> saveResource(String path, Resource resource, boolean replace,
-			ProgressListener<Resource> progressListener) {
+			@Nullable ProgressListener<Resource> progressListener) {
 		String p = pathPrefixMapper().apply(path);
+		if ( p == null ) {
+			return CompletableFuture.completedFuture(false);
+		}
 		return delegate.saveResource(p, resource, replace, progressListener);
 	}
 
@@ -193,7 +200,7 @@ public class NodeS3ResourceStorageService extends BaseIdentifiable
 	// Accessors
 
 	@Override
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		super.setMessageSource(messageSource);
 		this.delegate.setMessageSource(messageSource);
 	}
