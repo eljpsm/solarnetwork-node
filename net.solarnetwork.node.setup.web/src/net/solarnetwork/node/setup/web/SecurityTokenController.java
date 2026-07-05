@@ -58,7 +58,7 @@ public class SecurityTokenController extends BaseSetupWebServiceController {
 	 * @param securityTokenService
 	 *        the service to use
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public SecurityTokenController(SecurityTokenService securityTokenService) {
 		super();
@@ -103,11 +103,9 @@ public class SecurityTokenController extends BaseSetupWebServiceController {
 	@PostMapping(produces = MediaType.APPLICATION_JSON_VALUE, params = "id")
 	@ResponseBody
 	public Result<Void> updateSecurityToken(SecurityTokenInfo tokenInfo) {
-		SecurityToken input = null;
-		if ( tokenInfo != null ) {
-			input = SecurityToken.tokenDetails(tokenInfo.getId(), tokenInfo.getName(),
-					tokenInfo.getDescription());
-		}
+		requireNonNullArgument(tokenInfo, "tokenInfo");
+		SecurityToken input = SecurityToken.tokenDetails(tokenInfo.getId(), tokenInfo.getName(),
+				tokenInfo.getDescription());
 		securityTokenService.updateToken(input);
 		return success();
 	}

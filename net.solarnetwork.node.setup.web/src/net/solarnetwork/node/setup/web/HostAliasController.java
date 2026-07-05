@@ -23,6 +23,7 @@
 package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.domain.Result.success;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -107,7 +108,8 @@ public class HostAliasController {
 				aliasList.add(new KeyValuePair(alias, e.getKey().getHostAddress()));
 			}
 		}
-		Collections.sort(aliasList, (l, r) -> l.getKey().compareToIgnoreCase(r.getKey()));
+		Collections.sort(aliasList,
+				(l, r) -> nonnull(l.getKey(), "Key").compareToIgnoreCase(nonnull(r.getKey(), "Key")));
 		return success(aliasList);
 	}
 

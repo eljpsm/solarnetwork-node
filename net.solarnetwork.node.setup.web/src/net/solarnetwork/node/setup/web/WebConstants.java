@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.setup.web;
 
+import org.jspecify.annotations.Nullable;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -71,7 +72,8 @@ public interface WebConstants {
 	 * @param param
 	 *        optional error message parameters
 	 */
-	static void setupSessionError(HttpServletRequest request, String messageKey, Object... param) {
+	static void setupSessionError(HttpServletRequest request, String messageKey,
+			Object @Nullable... param) {
 		request.getSession(true).setAttribute(UI_MODEL_ERROR_MESSAGE_KEY, messageKey);
 		if ( param != null && param.length > 0 ) {
 			for ( int i = 0; i < param.length; i++ ) {

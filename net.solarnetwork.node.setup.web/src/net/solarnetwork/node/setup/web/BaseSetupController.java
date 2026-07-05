@@ -23,9 +23,9 @@
 package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.service.OptionalService.service;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import net.solarnetwork.node.service.IdentityService;
 import net.solarnetwork.node.service.SystemService;
@@ -36,28 +36,37 @@ import net.solarnetwork.service.OptionalService;
  * Base class for setup controllers.
  *
  * @author matt
- * @version 2.2
+ * @version 2.3
  */
-public class BaseSetupController {
+public abstract class BaseSetupController {
 
 	/** A class-level logger. */
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 
-	@Autowired
-	private SetupService setupBiz;
+	private final SetupService setupBiz;
 
-	@Autowired
-	private IdentityService identityService;
+	private final IdentityService identityService;
 
-	@Autowired
-	@Qualifier("systemService")
-	private OptionalService<SystemService> systemService;
+	private final OptionalService<SystemService> systemService;
 
 	/**
 	 * Default constructor.
+	 *
+	 * @param setupBiz
+	 *        the setup service
+	 * @param identityService
+	 *        the identity service
+	 * @param systemService
+	 *        the system service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public BaseSetupController() {
+	public BaseSetupController(SetupService setupBiz, IdentityService identityService,
+			@Qualifier("systemService") OptionalService<SystemService> systemService) {
 		super();
+		this.setupBiz = requireNonNullArgument(setupBiz, "setupBiz");
+		this.identityService = requireNonNullArgument(identityService, "identityService");
+		this.systemService = requireNonNullArgument(systemService, "systemService");
 	}
 
 	/**
@@ -82,19 +91,8 @@ public class BaseSetupController {
 	 *
 	 * @return the service
 	 */
-	public SetupService getSetupBiz() {
+	public final SetupService getSetupBiz() {
 		return setupBiz;
-	}
-
-	/**
-	 * Set the {@link SetupService} to use for querying/storing application
-	 * state information.
-	 *
-	 * @param setupBiz
-	 *        the service to set
-	 */
-	public void setSetupBiz(SetupService setupBiz) {
-		this.setupBiz = setupBiz;
 	}
 
 	/**
@@ -102,18 +100,8 @@ public class BaseSetupController {
 	 *
 	 * @return the service
 	 */
-	public IdentityService getIdentityService() {
+	public final IdentityService getIdentityService() {
 		return identityService;
-	}
-
-	/**
-	 * Set the {@link IdentityService} to use for querying identity information.
-	 *
-	 * @param identityService
-	 *        the service to set
-	 */
-	public void setIdentityService(IdentityService identityService) {
-		this.identityService = identityService;
 	}
 
 	/**
@@ -124,17 +112,6 @@ public class BaseSetupController {
 	 */
 	public final OptionalService<SystemService> getSystemService() {
 		return systemService;
-	}
-
-	/**
-	 * Set the system service.
-	 *
-	 * @param systemService
-	 *        the system service to set
-	 * @since 2.1
-	 */
-	public final void setSystemService(OptionalService<SystemService> systemService) {
-		this.systemService = systemService;
 	}
 
 }

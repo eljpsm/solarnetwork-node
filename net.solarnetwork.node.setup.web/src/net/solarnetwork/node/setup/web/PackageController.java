@@ -24,12 +24,13 @@ package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.domain.Result.error;
 import static net.solarnetwork.domain.Result.success;
-import java.util.Collections;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -67,7 +68,7 @@ public class PackageController {
 		 * Constructor.
 		 */
 		public PackageDetails() {
-			this(Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+			this(List.of(), List.of(), List.of());
 		}
 
 		/**
@@ -118,20 +119,28 @@ public class PackageController {
 
 	}
 
-	@Autowired
-	@Qualifier("platformPackageService")
-	private OptionalService<PlatformPackageService> platformPackageService;
-
-	@Autowired(required = true)
-	private MessageSource messageSource;
+	private final OptionalService<PlatformPackageService> platformPackageService;
+	private final MessageSource messageSource;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
 	/**
 	 * Default constructor.
+	 *
+	 * @param platformPackageService
+	 *        the platform package service
+	 * @param messageSource
+	 *        the message source
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public PackageController() {
+	public PackageController(
+			@Qualifier("platformPackageService") OptionalService<PlatformPackageService> platformPackageService,
+			MessageSource messageSource) {
 		super();
+		this.platformPackageService = requireNonNullArgument(platformPackageService,
+				"platformPackageService");
+		this.messageSource = requireNonNullArgument(messageSource, "messageSource");
 	}
 
 	/**
@@ -164,9 +173,11 @@ public class PackageController {
 			try {
 				service.refreshNamedPackages().get();
 			} catch ( Exception e ) {
-				Throwable t = e.getCause();
-				return error("WPC.0001", messageSource.getMessage("packages.refresh.exception",
-						new Object[] { t.getMessage() }, "Error refreshing packages: {0}", locale));
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				return error("WPC.0001",
+						messageSource.getMessage("packages.refresh.exception",
+								new Object[] { t.getMessage() != null ? t.getMessage() : t.toString() },
+								"Error refreshing packages: {0}", locale));
 			}
 			return list(null, locale);
 		}
@@ -185,7 +196,8 @@ public class PackageController {
 	@RequestMapping(value = "/list", method = RequestMethod.GET)
 	@ResponseBody
 	public Result<PackageDetails> list(
-			@RequestParam(value = "filter", required = false) final String filter, Locale locale) {
+			@RequestParam(value = "filter", required = false) final @Nullable String filter,
+			Locale locale) {
 		PlatformPackageService service = OptionalService.service(platformPackageService);
 		if ( service != null ) {
 			Future<Iterable<PlatformPackage>> avail = service.listNamedPackages(filter, Boolean.FALSE);
@@ -194,9 +206,11 @@ public class PackageController {
 			try {
 				return success(new PackageDetails(inst.get(), avail.get(), upgr.get()));
 			} catch ( Exception e ) {
-				Throwable t = e.getCause();
-				return error("WPC.0002", messageSource.getMessage("packages.list.exception",
-						new Object[] { t.getMessage() }, "Error listing packages: {0}", locale));
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				return error("WPC.0002",
+						messageSource.getMessage("packages.list.exception",
+								new Object[] { t.getMessage() != null ? t.getMessage() : t.toString() },
+								"Error listing packages: {0}", locale));
 			}
 		}
 		throw serviceNotAvailable(locale);
@@ -221,9 +235,11 @@ public class PackageController {
 			try {
 				return success(result.get());
 			} catch ( Exception e ) {
-				Throwable t = e.getCause();
-				return error("WPC.0003", messageSource.getMessage("packages.upgrade.exception",
-						new Object[] { t.getMessage() }, "Error upgrading packages: {0}", locale));
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				return error("WPC.0003",
+						messageSource.getMessage("packages.upgrade.exception",
+								new Object[] { t.getMessage() != null ? t.getMessage() : t.toString() },
+								"Error upgrading packages: {0}", locale));
 			}
 		}
 		throw serviceNotAvailable(locale);
@@ -255,11 +271,10 @@ public class PackageController {
 			try {
 				return success(result.get());
 			} catch ( Exception e ) {
-				Throwable t = e.getCause();
-				return error("WPC.0004",
-						messageSource.getMessage("package.install.exception",
-								new Object[] { name, t.getMessage() },
-								"Error installing package {0}: {1}", locale));
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				return error("WPC.0004", messageSource.getMessage("package.install.exception",
+						new Object[] { name, t.getMessage() != null ? t.getMessage() : t.toString() },
+						"Error installing package {0}: {1}", locale));
 			}
 		}
 		throw serviceNotAvailable(locale);
@@ -289,35 +304,13 @@ public class PackageController {
 			try {
 				return success(result.get());
 			} catch ( Exception e ) {
-				Throwable t = e.getCause();
-				return error("WPC.0005",
-						messageSource.getMessage("package.remove.exception",
-								new Object[] { name, t.getMessage() }, "Error removing package {0}: {1}",
-								locale));
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				return error("WPC.0005", messageSource.getMessage("package.remove.exception",
+						new Object[] { name, t.getMessage() != null ? t.getMessage() : t.toString() },
+						"Error removing package {0}: {1}", locale));
 			}
 		}
 		throw serviceNotAvailable(locale);
-	}
-
-	/**
-	 * Set the message source.
-	 *
-	 * @param messageSource
-	 *        the message source to set
-	 */
-	public void setMessageSource(MessageSource messageSource) {
-		this.messageSource = messageSource;
-	}
-
-	/**
-	 * Set the platform package service.
-	 *
-	 * @param platformPackageService
-	 *        the service to set
-	 */
-	public void setPlatformPackageService(
-			OptionalService<PlatformPackageService> platformPackageService) {
-		this.platformPackageService = platformPackageService;
 	}
 
 }

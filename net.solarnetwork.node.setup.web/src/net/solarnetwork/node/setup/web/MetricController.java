@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -62,6 +63,9 @@ import net.solarnetwork.node.metrics.domain.MetricAggregate;
 import net.solarnetwork.node.metrics.domain.MetricKey;
 import net.solarnetwork.node.metrics.domain.ParameterizedMetricAggregate;
 import net.solarnetwork.node.metrics.service.CsvExportBatchCallback;
+import net.solarnetwork.node.service.IdentityService;
+import net.solarnetwork.node.service.SystemService;
+import net.solarnetwork.node.setup.SetupService;
 import net.solarnetwork.node.setup.web.support.ServiceAwareController;
 import net.solarnetwork.service.OptionalService;
 import net.solarnetwork.util.DateUtils;
@@ -81,13 +85,21 @@ public class MetricController extends BaseSetupController {
 	/**
 	 * Constructor.
 	 *
+	 * @param setupBiz
+	 *        the setup service
+	 * @param identityService
+	 *        the identity service
+	 * @param systemService
+	 *        the system service
 	 * @param metricDao
 	 *        the metric DAO
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
-	public MetricController(@Qualifier("metricDao") OptionalService<MetricDao> metricDao) {
-		super();
+	public MetricController(SetupService setupBiz, IdentityService identityService,
+			@Qualifier("systemService") OptionalService<SystemService> systemService,
+			@Qualifier("metricDao") OptionalService<MetricDao> metricDao) {
+		super(setupBiz, identityService, systemService);
 		this.metricDao = requireNonNullArgument(metricDao, "metricDao");
 	}
 
@@ -106,15 +118,15 @@ public class MetricController extends BaseSetupController {
 	 */
 	public static final class MetricListCommand {
 
-		private String start;
-		private String end;
-		private String type;
-		private String name;
-		private Long offset;
-		private Integer max;
+		private @Nullable String start;
+		private @Nullable String end;
+		private @Nullable String type;
+		private @Nullable String name;
+		private @Nullable Long offset;
+		private @Nullable Integer max;
 		private boolean mostRecent;
-		private List<MutableSortDescriptor> sorts;
-		private Set<String> aggs;
+		private @Nullable List<MutableSortDescriptor> sorts;
+		private @Nullable Set<String> aggs;
 
 		/**
 		 * Constructor.
@@ -128,7 +140,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the start
 		 */
-		public final String getStart() {
+		public final @Nullable String getStart() {
 			return start;
 		}
 
@@ -138,7 +150,7 @@ public class MetricController extends BaseSetupController {
 		 * @param start
 		 *        the start to set
 		 */
-		public final void setStart(String start) {
+		public final void setStart(@Nullable String start) {
 			this.start = start;
 		}
 
@@ -147,7 +159,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the end
 		 */
-		public final String getEnd() {
+		public final @Nullable String getEnd() {
 			return end;
 		}
 
@@ -157,7 +169,7 @@ public class MetricController extends BaseSetupController {
 		 * @param end
 		 *        the end to set
 		 */
-		public final void setEnd(String end) {
+		public final void setEnd(@Nullable String end) {
 			this.end = end;
 		}
 
@@ -166,7 +178,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the type
 		 */
-		public final String getType() {
+		public final @Nullable String getType() {
 			return type;
 		}
 
@@ -176,7 +188,7 @@ public class MetricController extends BaseSetupController {
 		 * @param type
 		 *        the type to set
 		 */
-		public final void setType(String type) {
+		public final void setType(@Nullable String type) {
 			this.type = type;
 		}
 
@@ -185,7 +197,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the name
 		 */
-		public final String getName() {
+		public final @Nullable String getName() {
 			return name;
 		}
 
@@ -195,7 +207,7 @@ public class MetricController extends BaseSetupController {
 		 * @param name
 		 *        the name to set
 		 */
-		public final void setName(String name) {
+		public final void setName(@Nullable String name) {
 			this.name = name;
 		}
 
@@ -204,7 +216,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the offset
 		 */
-		public final Long getOffset() {
+		public final @Nullable Long getOffset() {
 			return offset;
 		}
 
@@ -214,7 +226,7 @@ public class MetricController extends BaseSetupController {
 		 * @param offset
 		 *        the offset to set
 		 */
-		public final void setOffset(Long offset) {
+		public final void setOffset(@Nullable Long offset) {
 			this.offset = offset;
 		}
 
@@ -223,7 +235,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the max
 		 */
-		public final Integer getMax() {
+		public final @Nullable Integer getMax() {
 			return max;
 		}
 
@@ -233,7 +245,7 @@ public class MetricController extends BaseSetupController {
 		 * @param max
 		 *        the max to set
 		 */
-		public final void setMax(Integer max) {
+		public final void setMax(@Nullable Integer max) {
 			this.max = max;
 		}
 
@@ -261,7 +273,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the sorts
 		 */
-		public final List<MutableSortDescriptor> getSorts() {
+		public final @Nullable List<MutableSortDescriptor> getSorts() {
 			return sorts;
 		}
 
@@ -271,7 +283,7 @@ public class MetricController extends BaseSetupController {
 		 * @param sorts
 		 *        the sorts to set
 		 */
-		public final void setSorts(List<MutableSortDescriptor> sorts) {
+		public final void setSorts(@Nullable List<MutableSortDescriptor> sorts) {
 			this.sorts = sorts;
 		}
 
@@ -280,7 +292,7 @@ public class MetricController extends BaseSetupController {
 		 *
 		 * @return the aggregates
 		 */
-		public final Set<String> getAggs() {
+		public final @Nullable Set<String> getAggs() {
 			return aggs;
 		}
 
@@ -297,11 +309,11 @@ public class MetricController extends BaseSetupController {
 		 * @param aggs
 		 *        the aggregates to set
 		 */
-		public final void setAggs(Set<String> aggs) {
+		public final void setAggs(@Nullable Set<String> aggs) {
 			this.aggs = aggs;
 		}
 
-		private Instant startDate() {
+		private @Nullable Instant startDate() {
 			if ( start == null || start.isEmpty() ) {
 				return null;
 			}
@@ -309,7 +321,7 @@ public class MetricController extends BaseSetupController {
 			return (date != null ? date.toInstant() : null);
 		}
 
-		private Instant endDate() {
+		private @Nullable Instant endDate() {
 			if ( end == null || end.isEmpty() ) {
 				return null;
 			}
@@ -317,7 +329,7 @@ public class MetricController extends BaseSetupController {
 			return (date != null ? date.toInstant() : null);
 		}
 
-		private MetricAggregate[] aggregates() {
+		private MetricAggregate @Nullable [] aggregates() {
 			if ( aggs == null || aggs.isEmpty() ) {
 				return null;
 			}

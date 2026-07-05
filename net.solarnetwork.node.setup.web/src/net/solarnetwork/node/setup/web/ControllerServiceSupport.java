@@ -23,6 +23,8 @@
 package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.service.OptionalService.service;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -73,9 +75,8 @@ public class ControllerServiceSupport {
 	 */
 	public static final String METRIC_DAO_ATTRIBUTE = "metricDao";
 
-	@Autowired
-	@Qualifier("systemService")
-	private OptionalService<SystemService> systemService;
+	private final IdentityService identityService;
+	private final OptionalService<SystemService> systemService;
 
 	@Autowired
 	@Qualifier("platformPackageService")
@@ -89,14 +90,21 @@ public class ControllerServiceSupport {
 	@Qualifier("metricDao")
 	private OptionalService<MetricDao> metricDao;
 
-	@Autowired
-	private IdentityService identityService;
-
 	/**
 	 * Default constructor.
+	 *
+	 * @param identityService
+	 *        the identity service
+	 * @param systemService
+	 *        the system service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public ControllerServiceSupport() {
+	public ControllerServiceSupport(IdentityService identityService,
+			@Qualifier("systemService") OptionalService<SystemService> systemService) {
 		super();
+		this.identityService = requireNonNullArgument(identityService, "identityService");
+		this.systemService = requireNonNullArgument(systemService, "systemService");
 	}
 
 	/**
@@ -108,17 +116,17 @@ public class ControllerServiceSupport {
 	 * @since 2.4
 	 */
 	@ModelAttribute(name = WebConstants.X_FORWARDED_PATH_MODEL_ATTR)
-	public String xForwardedPath(WebRequest request) {
+	public @Nullable String xForwardedPath(WebRequest request) {
 		return request.getHeader(WebConstants.X_FORWARDED_PATH_HTTP_HEADER);
 	}
 
 	/**
 	 * Get the system service.
 	 *
-	 * @return the service
+	 * @return the service, or {@code null}
 	 */
 	@ModelAttribute(value = SYSTEM_SERVICE_ATTRIBUTE)
-	public SystemService systemService() {
+	public @Nullable SystemService systemService() {
 		return service(systemService);
 	}
 
@@ -136,33 +144,33 @@ public class ControllerServiceSupport {
 	/**
 	 * The {@link PlatformPackageService}.
 	 *
-	 * @return the service
+	 * @return the service, or {@code null}
 	 * @since 2.1
 	 */
 	@ModelAttribute(value = PLATFORM_PACKAGE_SERVICE_ATTRIBUTE)
-	public PlatformPackageService platformPackageService() {
+	public @Nullable PlatformPackageService platformPackageService() {
 		return service(platformPackageService);
 	}
 
 	/**
 	 * The {@link PlatformPackageService}.
 	 *
-	 * @return the service
+	 * @return the service, or {@code null}
 	 * @since 2.2
 	 */
 	@ModelAttribute(value = PLUGIN_SERVICE_ATTRIBUTE)
-	public PluginService pluginService() {
+	public @Nullable PluginService pluginService() {
 		return service(pluginService);
 	}
 
 	/**
 	 * The {@link MetricDao}.
 	 *
-	 * @return the service
+	 * @return the service, or {@code null}
 	 * @since 2.3
 	 */
 	@ModelAttribute(value = METRIC_DAO_ATTRIBUTE)
-	public MetricDao metricDao() {
+	public @Nullable MetricDao metricDao() {
 		return service(metricDao);
 	}
 

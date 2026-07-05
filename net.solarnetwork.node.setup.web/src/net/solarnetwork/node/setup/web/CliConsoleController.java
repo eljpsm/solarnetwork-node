@@ -24,6 +24,7 @@ package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.domain.Result.success;
 import static net.solarnetwork.node.service.OperationalModesService.withPrefix;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,10 +60,12 @@ public class CliConsoleController {
 	 *
 	 * @param opModesService
 	 *        the operational modes service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public CliConsoleController(OperationalModesService opModesService) {
 		super();
-		this.opModesService = ObjectUtils.requireNonNullArgument(opModesService, "opModesService");
+		this.opModesService = requireNonNullArgument(opModesService, "opModesService");
 	}
 
 	/**
@@ -97,7 +100,8 @@ public class CliConsoleController {
 	 *
 	 * @return the resulting set of "known" CLI Command types
 	 */
-	@RequestMapping(value = "/types", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/types", method = RequestMethod.GET,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<Set<String>> listRegisteredCliCommandTypes() {
 		return success(typesForRegisteredModes(opModesService.registeredOperationalModes()
@@ -109,7 +113,8 @@ public class CliConsoleController {
 	 *
 	 * @return the resulting set of active CLI Command types
 	 */
-	@RequestMapping(value = "/logging", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/logging", method = RequestMethod.GET,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<Set<String>> listActiveCliCommandLoggingTypes() {
 		return success(typesForModes(opModesService.activeOperationalModes()));
@@ -124,12 +129,13 @@ public class CliConsoleController {
 	 *        the types to toggle
 	 * @return the resulting set of active CLI Command types
 	 */
-	@RequestMapping(value = "/logging", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/logging", method = RequestMethod.POST,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<Set<String>> toggleCliCommandLoggingEnabled(@RequestParam("enabled") boolean enabled,
 			@RequestParam("types") String types) {
-		Set<String> modes = StringUtils.commaDelimitedStringToSet(types).stream()
-				.map(t -> CLI_COMMANDS_OP_MODE_PREFIX.concat(t)).collect(Collectors.toSet());
+		Set<String> modes = ObjectUtils.nonnull(StringUtils.commaDelimitedStringToSet(types), "types")
+				.stream().map(t -> CLI_COMMANDS_OP_MODE_PREFIX.concat(t)).collect(Collectors.toSet());
 
 		Set<String> result;
 		if ( enabled ) {

@@ -23,6 +23,8 @@
 package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.domain.Result.success;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -32,7 +34,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -62,11 +63,12 @@ public class OperationalModesController extends BaseSetupWebServiceController {
 	 *
 	 * @param opModesService
 	 *        the operational modes service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	@Autowired
 	public OperationalModesController(OperationalModesService opModesService) {
 		super();
-		this.opModesService = opModesService;
+		this.opModesService = requireNonNullArgument(opModesService, "opModesService");
 	}
 
 	/**
@@ -84,7 +86,8 @@ public class OperationalModesController extends BaseSetupWebServiceController {
 	 *
 	 * @return the result
 	 */
-	@RequestMapping(value = "/active", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/active", method = RequestMethod.GET,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<Set<String>> loggers() {
 		return success(opModesService.activeOperationalModes());
@@ -100,7 +103,8 @@ public class OperationalModesController extends BaseSetupWebServiceController {
 	 *        integer seconds offset from now
 	 * @return the resulting overall active modes
 	 */
-	@RequestMapping(value = "/active", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/active", method = RequestMethod.POST,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<Set<String>> enableOperationalModes(@RequestParam("modes") String modes,
 			@RequestParam(name = "expires", required = false) String expiration) {
@@ -121,7 +125,7 @@ public class OperationalModesController extends BaseSetupWebServiceController {
 				}
 			}
 		}
-		Set<String> modeSet = StringUtils.commaDelimitedStringToSet(modes);
+		Set<String> modeSet = nonnull(StringUtils.commaDelimitedStringToSet(modes), "Modes");
 		return success(opModesService.enableOperationalModes(modeSet, expire));
 	}
 
@@ -132,7 +136,8 @@ public class OperationalModesController extends BaseSetupWebServiceController {
 	 *        a comma-delimited set of modes to disable
 	 * @return the resulting overall active modes
 	 */
-	@RequestMapping(value = "/active", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/active", method = RequestMethod.DELETE,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<Set<String>> disableOperationalModes(@RequestBody List<String> modes) {
 		Set<String> modeSet = new LinkedHashSet<>(modes);

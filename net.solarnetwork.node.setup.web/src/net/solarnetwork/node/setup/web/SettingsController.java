@@ -23,11 +23,15 @@
 package net.solarnetwork.node.setup.web;
 
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.sort;
+import static java.util.Objects.requireNonNullElse;
 import static net.solarnetwork.domain.Result.success;
 import static net.solarnetwork.node.setup.web.WebConstants.setupSessionError;
 import static net.solarnetwork.node.setup.web.support.WebServiceControllerSupport.responseOutputStream;
 import static net.solarnetwork.service.OptionalService.service;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import static net.solarnetwork.util.StringUtils.naturalSortCompare;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -35,7 +39,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -58,6 +61,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,6 +108,7 @@ import net.solarnetwork.settings.SettingSpecifierProvider;
 import net.solarnetwork.settings.SettingSpecifierProviderFactory;
 import net.solarnetwork.settings.SettingSpecifierProviderInfo;
 import net.solarnetwork.settings.support.BasicSettingSpecifierProviderInfo;
+import net.solarnetwork.util.ObjectUtils;
 import net.solarnetwork.util.SearchFilter;
 import net.solarnetwork.util.StringNaturalSortComparator;
 import net.solarnetwork.web.jakarta.domain.Response;
@@ -133,12 +138,14 @@ public class SettingsController {
 	private static final String VIEW_REDIRECT_SETTINGS = "redirect:/a/settings";
 	private static final String KEY_CSV_BACKUP_SERVICES = "csvBackupServiceList";
 
-	private static final SearchFilter NOT_DATUM_FILTER = SearchFilter
-			.forLDAPSearchFilterString("(!(role=datum-filter))");
-	private static final SearchFilter GLOBAL_DATUM_FILTER = SearchFilter
-			.forLDAPSearchFilterString("(&(role=datum-filter)(role=global))");
-	private static final SearchFilter USER_DATUM_FILTER = SearchFilter
-			.forLDAPSearchFilterString("(&(role=datum-filter)(role=user))");
+	private static final SearchFilter NOT_DATUM_FILTER = nonnull(
+			SearchFilter.forLDAPSearchFilterString("(!(role=datum-filter))"), "NOT_DATUM_FILTER");
+	private static final SearchFilter GLOBAL_DATUM_FILTER = nonnull(
+			SearchFilter.forLDAPSearchFilterString("(&(role=datum-filter)(role=global))"),
+			"GLOBAL_DATUM_FILTER");
+	private static final SearchFilter USER_DATUM_FILTER = nonnull(
+			SearchFilter.forLDAPSearchFilterString("(&(role=datum-filter)(role=user))"),
+			"USER_DATUM_FILTER");
 
 	private static final String ZIP_ARCHIVE_CONTENT_TYPE = "application/zip";
 
@@ -184,7 +191,8 @@ public class SettingsController {
 	@ExceptionHandler(RuntimeException.class)
 	public String handleRuntimeException(HttpServletRequest request, RuntimeException e) {
 		log.error("RuntimeException in {} controller", getClass().getSimpleName(), e);
-		setupSessionError(request, "error.unexpected", e.getMessage());
+		setupSessionError(request, "error.unexpected",
+				e.getMessage() != null ? e.getMessage() : e.toString());
 		return VIEW_REDIRECT_SETTINGS;
 	}
 
@@ -317,19 +325,24 @@ public class SettingsController {
 
 	private String displayNameForSettingResource(List<SettingSpecifierProvider> providers,
 			String handlerKey, String settingKey) {
+		final Locale locale = Locale.getDefault();
+		final MessageSource messageSource = ObjectUtils.nonnull(this.messageSource, "MessageSource");
 		String handlerName = null;
 		String settingResourceName = null;
 		SettingSpecifierProvider p = providers.stream().filter(e -> handlerKey.equals(e.getSettingUid()))
 				.findAny().orElse(null);
 		MessageSource ms = (p != null ? p.getMessageSource() : null);
 		if ( ms != null ) {
-			handlerName = ms.getMessage("title", null, p.getDisplayName(), Locale.getDefault());
+			handlerName = ms.getMessage("title", null, (p != null ? p.getDisplayName() : "Unknown"),
+					locale);
 			settingResourceName = ms.getMessage(format("resource.%s.title", settingKey), null,
-					Locale.getDefault());
+					messageSource.getMessage("settings.io.exportResource.unknownName", null, "Unnamed",
+							locale),
+					locale);
 		} else {
-			handlerName = p.getDisplayName();
+			handlerName = (p != null ? p.getDisplayName() : handlerKey);
 			settingResourceName = messageSource.getMessage("settings.io.exportResource.unknownName",
-					null, "Unnamed resource", Locale.getDefault());
+					null, "Unnamed", locale);
 		}
 		return format("%s - %s", handlerName, settingResourceName);
 	}
@@ -434,10 +447,9 @@ public class SettingsController {
 		}
 		final List<SettingSpecifierProviderInfo> results = serviceRegistry.services(serviceFilter)
 				.stream().filter((p) -> {
-					if ( p == null || !(p instanceof Identifiable) ) {
+					if ( p == null || !(p instanceof Identifiable ip) ) {
 						return false;
 					}
-					Identifiable ip = (Identifiable) p;
 					String uid = ip.getUid();
 					if ( uid == null || uid.isEmpty() ) {
 						return false;
@@ -445,13 +457,12 @@ public class SettingsController {
 					return true;
 				}).map((p) -> {
 					Identifiable ip = (Identifiable) p;
-					String uid = ip.getUid();
+					String uid = requireNonNullElse(ip.getUid(), "");
 					String groupUid = ip.getGroupUid();
-					if ( p instanceof SettingSpecifierProvider ) {
-						return ((SettingSpecifierProvider) p).localizedInfo(locale, uid, groupUid);
+					if ( p instanceof SettingSpecifierProvider ssp ) {
+						return ssp.localizedInfo(locale, uid, groupUid);
 					}
-					return new BasicSettingSpecifierProviderInfo(null, ip.getDisplayName(), uid,
-							groupUid);
+					return new BasicSettingSpecifierProviderInfo("", ip.getDisplayName(), uid, groupUid);
 				}).sorted((l, r) -> {
 					int result = naturalSortCompare(l.getDisplayName(), r.getDisplayName(), true);
 					if ( result == 0 ) {
@@ -557,7 +568,7 @@ public class SettingsController {
 	 * @param factoryUid
 	 *        the factory to create a new instance for
 	 * @param instanceUid
-	 *        the instance ID, or {@literal null} to auto-assign one
+	 *        the instance ID, or {@code null} to auto-assign one
 	 * @return the new instance ID
 	 */
 	@RequestMapping(value = "/manage/add", method = RequestMethod.POST)
@@ -760,7 +771,7 @@ public class SettingsController {
 	 * @param handlerKey
 	 *        the {@link SettingResourceHandler} ID to import with
 	 * @param instanceKey
-	 *        the optional factory instance ID, or {@literal null}
+	 *        the optional factory instance ID, or {@code null}
 	 * @param key
 	 *        the resource setting key
 	 * @param response
@@ -870,7 +881,7 @@ public class SettingsController {
 	public String importSettings(@RequestParam("file") MultipartFile file) throws IOException {
 		final SettingsService service = service(settingsServiceTracker);
 		if ( !file.isEmpty() && service != null ) {
-			InputStreamReader reader = new InputStreamReader(file.getInputStream(), "UTF-8");
+			InputStreamReader reader = new InputStreamReader(file.getInputStream(), UTF_8);
 			service.importSettingsCSV(reader);
 		}
 		return VIEW_REDIRECT_SETTINGS;
@@ -966,7 +977,7 @@ public class SettingsController {
 	 * @param handlerKey
 	 *        the {@link SettingResourceHandler} ID to import with
 	 * @param instanceKey
-	 *        the optional factory instance ID, or {@literal null}
+	 *        the optional factory instance ID, or {@code null}
 	 * @param key
 	 *        the resource setting key
 	 * @param files
@@ -1008,7 +1019,7 @@ public class SettingsController {
 	 * @param handlerKey
 	 *        the {@link SettingResourceHandler} ID to import with
 	 * @param instanceKey
-	 *        the optional factory instance ID, or {@literal null}
+	 *        the optional factory instance ID, or {@code null}
 	 * @param key
 	 *        the resource setting key
 	 * @param data
@@ -1036,8 +1047,8 @@ public class SettingsController {
 		private final String filename;
 
 		private NamedDataResource(String filename, String data) {
-			super(data.getBytes(Charset.forName("UTF-8")));
-			this.filename = filename;
+			super(data.getBytes(UTF_8));
+			this.filename = requireNonNullArgument(filename, "filename");
 		}
 
 		@Override
@@ -1053,7 +1064,7 @@ public class SettingsController {
 	 */
 	public static final class CleanSupportSettingsCommand extends SettingsCommand {
 
-		private String settingKeyPrefixToClean;
+		private @Nullable String settingKeyPrefixToClean;
 
 		/**
 		 * Constructor.
@@ -1065,9 +1076,9 @@ public class SettingsController {
 		/**
 		 * Get a prefix path to clean during the settings update.
 		 *
-		 * @return the prefix path, or {@literal null}
+		 * @return the prefix path, or {@code null}
 		 */
-		public String getSettingKeyPrefixToClean() {
+		public @Nullable String getSettingKeyPrefixToClean() {
 			return settingKeyPrefixToClean;
 		}
 
@@ -1077,7 +1088,7 @@ public class SettingsController {
 		 * @param settingKeyPrefixToClean
 		 *        the prefix to clean
 		 */
-		public void setSettingKeyPrefixToClean(String settingKeyPrefixToClean) {
+		public void setSettingKeyPrefixToClean(@Nullable String settingKeyPrefixToClean) {
 			this.settingKeyPrefixToClean = settingKeyPrefixToClean;
 		}
 

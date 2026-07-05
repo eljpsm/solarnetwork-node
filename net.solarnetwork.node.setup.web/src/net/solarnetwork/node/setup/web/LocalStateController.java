@@ -59,7 +59,7 @@ public class LocalStateController extends BaseSetupWebServiceController {
 	 * @param localStateService
 	 *        the service to use
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public LocalStateController(LocalStateService localStateService) {
 		super();

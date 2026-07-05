@@ -27,7 +27,6 @@ import static net.solarnetwork.domain.Result.success;
 import static net.solarnetwork.service.OptionalService.service;
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -95,7 +95,7 @@ public class DatumDataSourceController {
 	 * @param settingsService
 	 *        the settings service
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public DatumDataSourceController(ServiceRegistry serviceRegistry,
 			@Qualifier("settingsService") OptionalService<SettingsService> settingsService) {
@@ -120,12 +120,12 @@ public class DatumDataSourceController {
 	public static class DatumDataSourceInfo {
 
 		private final String type;
-		private final String identifier;
+		private final @Nullable String identifier;
 		private final SettingSpecifierProviderInfo info;
 		private final List<String> sourceIds;
 
-		private DatumDataSourceInfo(String type, String identifier, SettingSpecifierProviderInfo info,
-				List<String> sourceIds) {
+		private DatumDataSourceInfo(String type, @Nullable String identifier,
+				SettingSpecifierProviderInfo info, List<String> sourceIds) {
 			this.type = type;
 			this.identifier = identifier;
 			this.info = info;
@@ -146,7 +146,7 @@ public class DatumDataSourceController {
 		 *
 		 * @return the identifier
 		 */
-		public final String getIdentifier() {
+		public final @Nullable String getIdentifier() {
 			return identifier;
 		}
 
@@ -177,7 +177,8 @@ public class DatumDataSourceController {
 	 *        the desired locale
 	 * @return the resulting list of "known" datum data sources
 	 */
-	@RequestMapping(value = "/list", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/list", method = RequestMethod.GET,
+			produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Result<List<DatumDataSourceInfo>> listDatumDataSources(Locale locale) {
 		final List<DatumDataSourceInfo> results = new ArrayList<>();
@@ -189,13 +190,16 @@ public class DatumDataSourceController {
 		for ( Object s : serviceRegistry.services(SERVICE_FILTER) ) {
 			// all services implement DatumSourceIdProvider at a minimum, so safe to cast here
 			final DatumSourceIdProvider dsp = (DatumSourceIdProvider) s;
+			final String uid = dsp.getUid();
+			if ( uid == null ) {
+				continue;
+			}
 
 			final SettingSpecifierProviderInfo info;
 			String instanceId = null;
 
 			if ( s instanceof SettingSpecifierProvider ) {
-				info = ((SettingSpecifierProvider) s).localizedInfo(locale, dsp.getUid(),
-						dsp.getGroupUid());
+				info = ((SettingSpecifierProvider) s).localizedInfo(locale, uid, dsp.getGroupUid());
 
 				if ( service != null && info.getSettingUid() != null ) {
 
@@ -204,7 +208,7 @@ public class DatumDataSourceController {
 					if ( instanceMapping == null ) {
 						instanceMapping = service.getProvidersForFactory(info.getSettingUid());
 						if ( instanceMapping == null ) {
-							instanceMapping = Collections.emptyMap();
+							instanceMapping = Map.of();
 						}
 						settingFactories.put(info.getSettingUid(), instanceMapping);
 					}
@@ -220,9 +224,9 @@ public class DatumDataSourceController {
 				}
 
 			} else {
-				info = new BasicSettingSpecifierProviderInfo(null,
+				info = new BasicSettingSpecifierProviderInfo("",
 						dsp.getDisplayName() != null ? dsp.getDisplayName() : dsp.getClass().getName(),
-						dsp.getUid(), dsp.getGroupUid());
+						uid, dsp.getGroupUid());
 			}
 			List<String> sourceIds = new ArrayList<>(dsp.publishedSourceIds());
 			sourceIds.sort(String::compareToIgnoreCase);

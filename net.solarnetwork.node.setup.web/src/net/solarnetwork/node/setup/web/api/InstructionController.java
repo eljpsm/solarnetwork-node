@@ -174,7 +174,7 @@ public class InstructionController {
 	 * @param instructionId
 	 *        the ID of the instruction to view
 	 * @param source
-	 *        the optional instructor ID, or {@literal null} to look for SolarIn
+	 *        the optional instructor ID, or {@code null} to look for SolarIn
 	 *        and local instructions
 	 * @return the instruction
 	 */
@@ -190,7 +190,7 @@ public class InstructionController {
 	 * @param instructionIds
 	 *        the IDs of the instructions to view
 	 * @param source
-	 *        the optional instructor ID, or {@literal null} to look for SolarIn
+	 *        the optional instructor ID, or {@code null} to look for SolarIn
 	 *        and local instructions
 	 * @return the instructions
 	 */
@@ -238,7 +238,7 @@ public class InstructionController {
 	 * @param instructionId
 	 *        the ID of the instruction to update
 	 * @param source
-	 *        the optional instructor ID, or {@literal null} to look for SolarIn
+	 *        the optional instructor ID, or {@code null} to look for SolarIn
 	 *        and local instructions
 	 * @param state
 	 *        the desired state
@@ -258,7 +258,7 @@ public class InstructionController {
 	 * @param instructionIds
 	 *        the IDs of the instructions to update
 	 * @param source
-	 *        the optional instructor ID, or {@literal null} to look for SolarIn
+	 *        the optional instructor ID, or {@code null} to look for SolarIn
 	 *        and local instructions
 	 * @param state
 	 *        the desired state

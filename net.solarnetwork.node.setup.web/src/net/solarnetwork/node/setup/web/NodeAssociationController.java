@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
@@ -67,11 +68,14 @@ import net.solarnetwork.node.backup.BackupInfo;
 import net.solarnetwork.node.backup.BackupManager;
 import net.solarnetwork.node.backup.BackupService;
 import net.solarnetwork.node.backup.SimpleBackupFilter;
+import net.solarnetwork.node.service.IdentityService;
 import net.solarnetwork.node.service.PKIService;
+import net.solarnetwork.node.service.SystemService;
 import net.solarnetwork.node.settings.SettingsCommand;
 import net.solarnetwork.node.settings.SettingsService;
 import net.solarnetwork.node.setup.InvalidVerificationCodeException;
 import net.solarnetwork.node.setup.SetupException;
+import net.solarnetwork.node.setup.SetupService;
 import net.solarnetwork.node.setup.UserProfile;
 import net.solarnetwork.node.setup.UserService;
 import net.solarnetwork.node.setup.web.support.AssociateNodeCommand;
@@ -86,7 +90,7 @@ import net.solarnetwork.web.jakarta.domain.Response;
  *
  * @author maxieduncan
  * @author matt
- * @version 2.4
+ * @version 2.5
  */
 @Controller
 @SessionAttributes({ NodeAssociationController.KEY_DETAILS, NodeAssociationController.KEY_IDENTITY })
@@ -166,9 +170,19 @@ public class NodeAssociationController extends BaseSetupController {
 
 	/**
 	 * Default constructor.
+	 *
+	 * @param setupBiz
+	 *        the setup service
+	 * @param identityService
+	 *        the identity service
+	 * @param systemService
+	 *        the system service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public NodeAssociationController() {
-		super();
+	public NodeAssociationController(SetupService setupBiz, IdentityService identityService,
+			@Qualifier("systemService") OptionalService<SystemService> systemService) {
+		super(setupBiz, identityService, systemService);
 	}
 
 	/**
@@ -265,7 +279,8 @@ public class NodeAssociationController extends BaseSetupController {
 	public String verifyCode(@ModelAttribute("command") AssociateNodeCommand command, Errors errors,
 			@ModelAttribute(KEY_DETAILS) NetworkAssociationDetails details, Model model) {
 		// Check expiration date
-		if ( details.getExpiration().toEpochMilli() < System.currentTimeMillis() ) {
+		if ( details.getExpiration() == null
+				|| details.getExpiration().toEpochMilli() < System.currentTimeMillis() ) {
 			errors.rejectValue("verificationCode", "verificationCode.expired", null, null);
 			return PAGE_ENTER_CODE;
 		}
@@ -443,12 +458,18 @@ public class NodeAssociationController extends BaseSetupController {
 	 */
 	@RequestMapping(value = "/chooseBackup", method = RequestMethod.POST)
 	public String chooseBackup(@RequestParam("backup") String key, HttpServletRequest request) {
-		final BackupManager backupManager = backupManagerTracker.service();
-		BackupService service = backupManager.activeBackupService();
-		Backup backup = service.backupForKey(key);
-		if ( backup != null ) {
-			request.getSession(true).setAttribute(BACKUP_KEY_SESSION_KEY, backup.getKey());
-			return PAGE_RESTORE_FROM_BACKUP;
+		final BackupManager manager = backupManagerTracker.service();
+		if ( manager == null ) {
+			setupSessionError(request, "node.setup.restore.error.noBackupManager");
+			return "redirect:/associate";
+		}
+		final BackupService service = manager.activeBackupService();
+		if ( service != null ) {
+			final Backup backup = service.backupForKey(key);
+			if ( backup != null ) {
+				request.getSession(true).setAttribute(BACKUP_KEY_SESSION_KEY, backup.getKey());
+				return PAGE_RESTORE_FROM_BACKUP;
+			}
 		}
 		setupSessionError(request, "node.setup.restore.error.unknown", "Backup not found");
 		return "redirect:/associate";
@@ -476,7 +497,8 @@ public class NodeAssociationController extends BaseSetupController {
 		Map<String, String> props = new HashMap<String, String>();
 		props.put(BackupManager.BACKUP_KEY, file.getOriginalFilename());
 		try {
-			Future<Backup> backupFuture = manager.importBackupArchive(file.getInputStream(), props);
+			Future<@Nullable Backup> backupFuture = manager.importBackupArchive(file.getInputStream(),
+					props);
 			Backup backup = backupFuture.get();
 			if ( backup != null ) {
 				request.getSession(true).setAttribute(BACKUP_KEY_SESSION_KEY, backup.getKey());
@@ -490,7 +512,8 @@ public class NodeAssociationController extends BaseSetupController {
 			while ( root.getCause() != null ) {
 				root = root.getCause();
 			}
-			setupSessionError(request, "node.setup.restore.error.unknown", root.getMessage());
+			setupSessionError(request, "node.setup.restore.error.unknown",
+					root.getMessage() != null ? root.getMessage() : root.toString());
 			return "redirect:/associate";
 		}
 
@@ -558,7 +581,7 @@ public class NodeAssociationController extends BaseSetupController {
 		if ( backupKey == null ) {
 			return new Response<Object>(false, "404", "No imported backup available.", null);
 		}
-		Backup backup = manager.activeBackupService().backupForKey(backupKey);
+		Backup backup = backupService.backupForKey(backupKey);
 		if ( backup == null ) {
 			return new Response<Object>(false, "404", "Imported backup not available.", null);
 		}

@@ -88,7 +88,7 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 	 * Constructor.
 	 *
 	 * @param settings,
-	 *        or {@literal null} to create a default instance
+	 *        or {@code null} to create a default instance
 	 */
 	public SecurityTokenAuthenticationFilter(SecurityTokenFilterSettings settings) {
 		super();
@@ -297,7 +297,7 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 	/**
 	 * Get the filter settings.
 	 *
-	 * @return the settings, never {@literal null}
+	 * @return the settings, never {@code null}
 	 */
 	public SecurityTokenFilterSettings getSettings() {
 		return settings;

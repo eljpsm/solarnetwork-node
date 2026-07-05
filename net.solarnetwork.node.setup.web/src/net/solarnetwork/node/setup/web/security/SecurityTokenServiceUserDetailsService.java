@@ -47,7 +47,7 @@ public class SecurityTokenServiceUserDetailsService implements UserDetailsServic
 	 * @param securityTokenService
 	 *        the security token service to use
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public SecurityTokenServiceUserDetailsService(SecurityTokenService securityTokenService) {
 		super();

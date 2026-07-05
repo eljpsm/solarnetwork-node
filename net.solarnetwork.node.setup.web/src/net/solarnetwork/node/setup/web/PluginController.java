@@ -25,13 +25,13 @@ package net.solarnetwork.node.setup.web;
 import static net.solarnetwork.domain.Result.success;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,8 +75,8 @@ public class PluginController {
 		 */
 		public PluginDetails() {
 			super();
-			this.availablePlugins = Collections.emptyList();
-			this.installedPlugins = Collections.emptyList();
+			this.availablePlugins = List.of();
+			this.installedPlugins = List.of();
 		}
 
 		/**
@@ -223,8 +223,8 @@ public class PluginController {
 		}
 	}
 
-	private PluginDetails pluginDetails(final String filter, final Boolean latestOnly,
-			final Locale locale) {
+	private PluginDetails pluginDetails(final @Nullable String filter,
+			final @Nullable Boolean latestOnly, final Locale locale) {
 		PluginService service = pluginService.service();
 		if ( service == null ) {
 			return new PluginDetails();
@@ -387,7 +387,7 @@ public class PluginController {
 		if ( service == null ) {
 			throw new UnsupportedOperationException("PluginService not available");
 		}
-		Collection<String> uids = Collections.singleton(uid);
+		Collection<String> uids = List.of(uid);
 		return success(service.removePlugins(uids, locale));
 	}
 

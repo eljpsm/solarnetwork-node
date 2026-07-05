@@ -24,6 +24,7 @@ package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.domain.Result.error;
 import static net.solarnetwork.domain.Result.success;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,7 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Controller;
@@ -50,6 +51,9 @@ import net.solarnetwork.node.backup.BackupInfo;
 import net.solarnetwork.node.backup.BackupManager;
 import net.solarnetwork.node.backup.BackupService;
 import net.solarnetwork.node.backup.SimpleBackupFilter;
+import net.solarnetwork.node.service.IdentityService;
+import net.solarnetwork.node.service.SystemService;
+import net.solarnetwork.node.setup.SetupService;
 import net.solarnetwork.node.setup.web.support.SortByNodeAndDate;
 import net.solarnetwork.service.OptionalService;
 
@@ -57,26 +61,41 @@ import net.solarnetwork.service.OptionalService;
  * Controller for backup support.
  *
  * @author matt
- * @version 2.2
+ * @version 2.3
  */
 @Controller
 @RequestMapping("/a/backups")
 public class BackupController extends BaseSetupController {
 
-	private Future<Backup> importTask;
+	private final OptionalService<BackupManager> backupManagerTracker;
 
-	@Autowired
-	@Qualifier("backupManager")
-	private OptionalService<BackupManager> backupManagerTracker;
+	private final MessageSource messageSource;
 
-	@Autowired
-	private MessageSource messageSource;
+	private @Nullable Future<@Nullable Backup> importTask;
 
 	/**
 	 * Default constructor.
+	 *
+	 * @param setupBiz
+	 *        the setup service
+	 * @param identityService
+	 *        the identity service
+	 * @param systemService
+	 *        the system service
+	 * @param backupManagerTracker
+	 *        the backup manager tracker
+	 * @param messageSource
+	 *        the message source
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public BackupController() {
-		super();
+	public BackupController(SetupService setupBiz, IdentityService identityService,
+			@Qualifier("systemService") OptionalService<SystemService> systemService,
+			@Qualifier("backupManager") OptionalService<BackupManager> backupManagerTracker,
+			MessageSource messageSource) {
+		super(setupBiz, identityService, systemService);
+		this.backupManagerTracker = requireNonNullArgument(backupManagerTracker, "backupManagerTracker");
+		this.messageSource = requireNonNullArgument(messageSource, "messageSource");
 	}
 
 	/**
@@ -156,7 +175,7 @@ public class BackupController extends BaseSetupController {
 	@RequestMapping(value = "/import", method = RequestMethod.POST)
 	@ResponseBody
 	public Result<Boolean> importBackup(@RequestParam("file") MultipartFile file) throws IOException {
-		Future<Backup> task = importTask;
+		Future<@Nullable Backup> task = importTask;
 		if ( task != null && !task.isDone() ) {
 			return error("422", "Import task already running");
 		}
@@ -179,7 +198,7 @@ public class BackupController extends BaseSetupController {
 	@RequestMapping(value = "/import", method = RequestMethod.GET)
 	@ResponseBody
 	public Result<String> checkLastImport() {
-		Future<Backup> task = importTask;
+		Future<@Nullable Backup> task = importTask;
 		try {
 			return success(task != null && task.isDone() ? task.get().getKey() : null);
 		} catch ( ExecutionException e ) {
@@ -236,7 +255,7 @@ public class BackupController extends BaseSetupController {
 		if ( backupKey == null ) {
 			return error("422", "No backup key provided.");
 		}
-		Backup backup = manager.activeBackupService().backupForKey(backupKey);
+		Backup backup = backupService.backupForKey(backupKey);
 		if ( backup == null ) {
 			return error("404", "Backup not available.");
 		}

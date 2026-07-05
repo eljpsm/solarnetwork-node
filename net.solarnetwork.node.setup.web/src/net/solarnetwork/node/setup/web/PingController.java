@@ -54,7 +54,7 @@ public class PingController {
 	 * @param systemHealthService
 	 *        the system health service
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public PingController(SystemHealthService systemHealthService) {
 		super();

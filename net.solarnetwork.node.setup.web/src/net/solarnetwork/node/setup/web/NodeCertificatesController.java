@@ -29,6 +29,7 @@ import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -40,14 +41,18 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import net.solarnetwork.node.service.IdentityService;
 import net.solarnetwork.node.service.PKIService;
+import net.solarnetwork.node.service.SystemService;
+import net.solarnetwork.node.setup.SetupService;
 import net.solarnetwork.node.setup.web.support.ServiceAwareController;
+import net.solarnetwork.service.OptionalService;
 
 /**
  * Controller for node certificate management.
  *
  * @author matt
- * @version 2.3
+ * @version 2.4
  */
 @ServiceAwareController
 @RequestMapping("/a/certs")
@@ -114,11 +119,21 @@ public class NodeCertificatesController extends BaseSetupController {
 	/**
 	 * Constructor.
 	 *
+	 * @param setupBiz
+	 *        the setup service
+	 * @param identityService
+	 *        the identity service
+	 * @param systemService
+	 *        the system service
 	 * @param pkiService
 	 *        the PKI service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public NodeCertificatesController(PKIService pkiService) {
-		super();
+	public NodeCertificatesController(SetupService setupBiz, IdentityService identityService,
+			@Qualifier("systemService") OptionalService<SystemService> systemService,
+			PKIService pkiService) {
+		super(setupBiz, identityService, systemService);
 		this.pkiService = requireNonNullArgument(pkiService, "pkiService");
 	}
 
@@ -138,8 +153,8 @@ public class NodeCertificatesController extends BaseSetupController {
 		final boolean valid = (nodeCert != null
 				&& (!nodeCert.getIssuerDN().equals(nodeCert.getSubjectDN())
 						&& !now.before(nodeCert.getNotBefore()) && !expired));
-		model.addAttribute("nodeCert", new CertificateInfo(nodeCert));
 		if ( nodeCert != null ) {
+			model.addAttribute("nodeCert", new CertificateInfo(nodeCert));
 			model.addAttribute("nodeCertSerialNumber", "0x" + nodeCert.getSerialNumber().toString(16));
 		}
 		model.addAttribute("nodeCertExpired", expired);
@@ -156,9 +171,7 @@ public class NodeCertificatesController extends BaseSetupController {
 	@ResponseBody
 	public Map<String, Object> nodeCSR() {
 		String csr = pkiService.generateNodePKCS10CertificateRequestString();
-		Map<String, Object> result = new HashMap<String, Object>(1);
-		result.put("csr", csr);
-		return result;
+		return Map.of("csr", csr);
 	}
 
 	/**
@@ -183,9 +196,7 @@ public class NodeCertificatesController extends BaseSetupController {
 				: pkiService.generateNodePKCS7CertificateString());
 
 		if ( !Boolean.TRUE.equals(download) ) {
-			Map<String, Object> result = new HashMap<String, Object>(1);
-			result.put("cert", cert);
-			return result;
+			return Map.of("cert", cert);
 		}
 
 		HttpHeaders headers = new HttpHeaders();

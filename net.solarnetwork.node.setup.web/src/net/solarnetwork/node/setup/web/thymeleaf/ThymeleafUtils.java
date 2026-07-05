@@ -25,6 +25,7 @@ package net.solarnetwork.node.setup.web.thymeleaf;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 import org.thymeleaf.context.ITemplateContext;
 import org.thymeleaf.engine.AttributeName;
 import org.thymeleaf.engine.EngineEventUtils;
@@ -151,26 +152,28 @@ public final class ThymeleafUtils {
 	 *        {@code true} to evaluate in restricted mode
 	 * @return the evaluation result
 	 */
-	public static Object evaulateAttributeExpression(final ITemplateContext context,
+	public static @Nullable Object evaulateAttributeExpression(final ITemplateContext context,
 			final IProcessableElementTag tag, final AttributeName attributeName,
-			final String attributeValue, final boolean restrictedExpressionExecution) {
+			final @Nullable String attributeValue, final boolean restrictedExpressionExecution) {
 		final Object expressionResult;
 
 		if ( attributeValue != null && !attributeValue.isBlank() ) {
 			final IStandardExpression expression = EngineEventUtils.computeAttributeExpression(context,
 					tag, attributeName, attributeValue);
-			if ( expression != null && expression instanceof FragmentExpression ) {
+			if ( expression != null && expression instanceof FragmentExpression fe ) {
 				final FragmentExpression.ExecutedFragmentExpression executedFragmentExpression = FragmentExpression
-						.createExecutedFragmentExpression(context, (FragmentExpression) expression);
+						.createExecutedFragmentExpression(context, fe);
 
 				expressionResult = FragmentExpression.resolveExecutedFragmentExpression(context,
 						executedFragmentExpression, true);
-			} else {
+			} else if ( expression != null ) {
 				final StandardExpressionExecutionContext expressionExecutionContext = restrictedExpressionExecution
 						? StandardExpressionExecutionContext.RESTRICTED
 						: StandardExpressionExecutionContext.NORMAL;
 
 				expressionResult = expression.execute(context, expressionExecutionContext);
+			} else {
+				expressionResult = attributeValue;
 			}
 		} else {
 			expressionResult = attributeValue;
@@ -186,7 +189,7 @@ public final class ThymeleafUtils {
 	 *        the context
 	 * @param tag
 	 *        the tag
-	 * @return the evaluated attributes, never {@literal null}
+	 * @return the evaluated attributes, never {@code null}
 	 */
 	public static Map<String, Object> dynamicAttributes(ITemplateContext context,
 			IProcessableElementTag tag) {
@@ -203,7 +206,7 @@ public final class ThymeleafUtils {
 	 * @param filter
 	 *        an optional filter; when provided only attributes that the filter
 	 *        confirms will be included
-	 * @return the evaluated attributes, never {@literal null}
+	 * @return the evaluated attributes, never {@code null}
 	 */
 	public static Map<String, Object> dynamicAttributes(ITemplateContext context,
 			IProcessableElementTag tag, Predicate<IAttribute> filter) {

@@ -1,36 +1,35 @@
 /* ==================================================================
  * SolarInHttpProxy.java - Nov 19, 2013 4:09:04 PM
- * 
+ *
  * Copyright 2007-2013 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
 
 package net.solarnetwork.node.setup.web;
 
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URLConnection;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.FileCopyUtils;
@@ -45,13 +44,13 @@ import net.solarnetwork.service.SSLService;
 
 /**
  * Proxy HTTP requests to SolarIn.
- * 
+ *
  * <p>
  * This is designed to be used by the Settings app, to support calling SolarIn
  * web services without relying on the user's browser be configured to support
  * the SolarIn X.509 certificate.
  * </p>
- * 
+ *
  * @author matt
  * @version 2.0
  */
@@ -62,28 +61,29 @@ public class SolarInHttpProxy extends HttpClientSupport {
 			"strict-transport-security", "transfer-encoding" };
 
 	private Set<String> proxyHeadersIgnore = new LinkedHashSet<String>(
-			Arrays.asList(DEFAULT_PROXY_HEADERS_IGNORE));
+			List.of(DEFAULT_PROXY_HEADERS_IGNORE));
 
 	/**
 	 * Constructor.
-	 * 
+	 *
 	 * @param identityService
 	 *        the identity service
 	 * @param sslService
 	 *        the SSL service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	@Autowired
 	public SolarInHttpProxy(@Qualifier("identityService") IdentityService identityService,
 			@Qualifier("sslService") OptionalService<SSLService> sslService) {
 		super();
-		setIdentityService(identityService);
-		setSslService(sslService);
+		setIdentityService(requireNonNullArgument(identityService, "identityService"));
+		setSslService(requireNonNullArgument(sslService, "sslService"));
 	}
 
 	/**
 	 * Proxy an HTTP request to SolarIn and return the result on a given HTTP
 	 * response.
-	 * 
+	 *
 	 * @param request
 	 *        the request to proxy
 	 * @param response
@@ -91,8 +91,8 @@ public class SolarInHttpProxy extends HttpClientSupport {
 	 * @throws IOException
 	 *         if an IO error occurs
 	 */
-	@RequestMapping(value = { "/a/location", "/a/location/price",
-			"/a/location/weather" }, method = RequestMethod.GET)
+	@RequestMapping(value = { "/a/location", "/a/location/price", "/a/location/weather" },
+			method = RequestMethod.GET)
 	public void proxy(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String context = request.getContextPath();
 		String path = request.getRequestURI();
@@ -102,7 +102,7 @@ public class SolarInHttpProxy extends HttpClientSupport {
 		// map "/a" to "/api/v1/sec"
 		path = "/api/v1/sec" + path.substring(2);
 		String query = request.getQueryString();
-		String url = getIdentityService().getSolarInBaseUrl() + path;
+		String url = identityService().getSolarInBaseUrl() + path;
 		if ( query != null ) {
 			url += '?' + query;
 		}
@@ -138,7 +138,7 @@ public class SolarInHttpProxy extends HttpClientSupport {
 
 	/**
 	 * Configure a set of HTTP headers to <b>not</b> proxy.
-	 * 
+	 *
 	 * @param proxyHeadersIgnore
 	 *        the headers to ignore
 	 */

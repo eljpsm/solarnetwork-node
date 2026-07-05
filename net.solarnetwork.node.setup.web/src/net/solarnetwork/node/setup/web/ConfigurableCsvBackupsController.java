@@ -76,6 +76,8 @@ public class ConfigurableCsvBackupsController {
 	 *        the identity service
 	 * @param csvBackupServices
 	 *        the list of available backup services
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public ConfigurableCsvBackupsController(IdentityService identityService,
 			@Qualifier("csvBackupServiceList") Collection<CsvConfigurableBackupService> csvBackupServices) {
