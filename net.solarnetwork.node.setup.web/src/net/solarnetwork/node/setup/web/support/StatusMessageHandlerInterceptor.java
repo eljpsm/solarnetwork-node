@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.setup.web.support;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.HandlerInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,7 +60,7 @@ public class StatusMessageHandlerInterceptor implements HandlerInterceptor {
 
 	@Override
 	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
-			Exception ex) throws Exception {
+			@Nullable Exception ex) throws Exception {
 		if ( ex != null || HttpStatus.valueOf(response.getStatus()).is3xxRedirection() ) {
 			return;
 		}

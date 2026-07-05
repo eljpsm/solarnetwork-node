@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.setup.web.support;
 
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -64,7 +65,8 @@ public final class ExceptionUtils {
 	 */
 	public static String generateErrorsMessage(Errors e, Locale locale, MessageSource msgSrc) {
 		String msg = (msgSrc == null ? "Validation error"
-				: msgSrc.getMessage("error.validation", null, "Validation error", locale));
+				: nonnull(msgSrc.getMessage("error.validation", null, "Validation error", locale),
+						"Message"));
 		if ( msgSrc != null && e != null && e.hasErrors() ) {
 			StringBuilder buf = new StringBuilder();
 			for ( ObjectError error : e.getAllErrors() ) {

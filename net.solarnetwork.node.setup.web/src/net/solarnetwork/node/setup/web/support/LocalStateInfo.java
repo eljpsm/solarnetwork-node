@@ -23,6 +23,7 @@
 package net.solarnetwork.node.setup.web.support;
 
 import java.math.BigInteger;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.codec.JsonUtils;
 import net.solarnetwork.node.domain.LocalState;
 import net.solarnetwork.node.domain.LocalStateType;
@@ -37,9 +38,9 @@ import net.solarnetwork.util.NumberUtils;
  */
 public class LocalStateInfo {
 
-	private String key;
-	private String type;
-	private String value;
+	private @Nullable String key;
+	private @Nullable String type;
+	private @Nullable String value;
 
 	/**
 	 * Constructor.
@@ -54,7 +55,7 @@ public class LocalStateInfo {
 	 *
 	 * @return the new entity, or {@code null} if one cannot be created
 	 */
-	public LocalState toLocalState() {
+	public @Nullable LocalState toLocalState() {
 		final String key = getKey();
 		if ( key == null || key.isEmpty() ) {
 			return null;
@@ -93,7 +94,7 @@ public class LocalStateInfo {
 					}
 				}
 			} else {
-				type = LocalStateType.forKey(getType());
+				type = LocalStateType.forKey(this.type);
 			}
 			if ( type == LocalStateType.Mapping ) {
 				// convert to Map instance
@@ -114,7 +115,7 @@ public class LocalStateInfo {
 	 *
 	 * @return the key
 	 */
-	public String getKey() {
+	public @Nullable String getKey() {
 		return key;
 	}
 
@@ -124,7 +125,7 @@ public class LocalStateInfo {
 	 * @param key
 	 *        the key to set
 	 */
-	public void setKey(String key) {
+	public void setKey(@Nullable String key) {
 		this.key = key;
 	}
 
@@ -133,7 +134,7 @@ public class LocalStateInfo {
 	 *
 	 * @return the type
 	 */
-	public String getType() {
+	public @Nullable String getType() {
 		return type;
 	}
 
@@ -143,7 +144,7 @@ public class LocalStateInfo {
 	 * @param type
 	 *        the type to set
 	 */
-	public void setType(String type) {
+	public void setType(@Nullable String type) {
 		this.type = type;
 	}
 
@@ -152,7 +153,7 @@ public class LocalStateInfo {
 	 *
 	 * @return the value
 	 */
-	public String getValue() {
+	public @Nullable String getValue() {
 		return value;
 	}
 
@@ -162,7 +163,7 @@ public class LocalStateInfo {
 	 * @param value
 	 *        the value to set
 	 */
-	public void setValue(String value) {
+	public void setValue(@Nullable String value) {
 		this.value = value;
 	}
 

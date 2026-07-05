@@ -124,7 +124,7 @@ public class SecurityToken extends BasicStringEntity {
 	 * @return the token instance
 	 */
 	@SuppressWarnings("NullAway")
-	public static SecurityToken tokenDetails(String name, String description) {
+	public static SecurityToken tokenDetails(@Nullable String name, @Nullable String description) {
 		return new SecurityToken(null, name, description);
 	}
 

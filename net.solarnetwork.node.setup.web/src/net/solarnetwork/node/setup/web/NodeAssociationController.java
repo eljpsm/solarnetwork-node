@@ -24,6 +24,7 @@ package net.solarnetwork.node.setup.web;
 
 import static net.solarnetwork.domain.Result.success;
 import static net.solarnetwork.node.setup.web.WebConstants.setupSessionError;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -252,7 +253,7 @@ public class NodeAssociationController extends BaseSetupController {
 
 		try {
 			NetworkAssociationDetails details = getSetupBiz()
-					.decodeVerificationCode(command.getVerificationCode());
+					.decodeVerificationCode(nonnull(command.getVerificationCode(), "Verification code"));
 			model.addAttribute(KEY_DETAILS, details);
 		} catch ( InvalidVerificationCodeException e ) {
 			errors.rejectValue("verificationCode", "verificationCode.invalid", null, null);

@@ -209,8 +209,9 @@ public final class WebServiceControllerSupport {
 			if ( idx > 0 && idx < authHeader.length() ) {
 				String data = authHeader.substring(idx + 1);
 				Map<String, String> dataMap = StringUtils.commaDelimitedStringToMap(data);
-				String name = dataMap
-						.get(AbstractAuthorizationBuilder.AUTHORIZATION_COMPONENT_CREDENTIAL);
+				String name = (dataMap != null
+						? dataMap.get(AbstractAuthorizationBuilder.AUTHORIZATION_COMPONENT_CREDENTIAL)
+						: null);
 				if ( name != null ) {
 					return name;
 				}
@@ -409,7 +410,9 @@ public final class WebServiceControllerSupport {
 		String msg;
 		String msgKey;
 		String code;
-		Object[] params = new Object[] { e.getMostSpecificCause().getMessage() };
+		Object[] params = new Object[] {
+				e.getMostSpecificCause().getMessage() != null ? e.getMostSpecificCause().getMessage()
+						: e.getMostSpecificCause().toString() };
 		if ( e instanceof DuplicateKeyException ) {
 			msg = "Duplicate key";
 			msgKey = "error.dao.duplicateKey";
@@ -428,7 +431,7 @@ public final class WebServiceControllerSupport {
 			if ( sqlEx != null ) {
 				log.warn("Root SQLException from {}: {}", e.getMessage(), sqlEx.getMessage(), sqlEx);
 				sqlState = sqlEx.getSQLState();
-				params[0] = sqlEx.getMessage();
+				params[0] = (sqlEx.getMessage() != null ? sqlEx.getMessage() : sqlEx.toString());
 			}
 			if ( sqlState != null && sqlState.startsWith("22") ) {
 				// Class 22 — Data Exception

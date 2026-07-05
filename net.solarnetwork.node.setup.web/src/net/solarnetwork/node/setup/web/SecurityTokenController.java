@@ -24,6 +24,7 @@ package net.solarnetwork.node.setup.web;
 
 import static java.util.Collections.singletonMap;
 import static net.solarnetwork.domain.Result.success;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -104,8 +105,8 @@ public class SecurityTokenController extends BaseSetupWebServiceController {
 	@ResponseBody
 	public Result<Void> updateSecurityToken(SecurityTokenInfo tokenInfo) {
 		requireNonNullArgument(tokenInfo, "tokenInfo");
-		SecurityToken input = SecurityToken.tokenDetails(tokenInfo.getId(), tokenInfo.getName(),
-				tokenInfo.getDescription());
+		SecurityToken input = SecurityToken.tokenDetails(nonnull(tokenInfo.getId(), "ID"),
+				tokenInfo.getName(), tokenInfo.getDescription());
 		securityTokenService.updateToken(input);
 		return success();
 	}
