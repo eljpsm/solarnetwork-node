@@ -25,12 +25,15 @@ package net.solarnetwork.node.setup.web.api;
 import static net.solarnetwork.domain.Result.error;
 import static net.solarnetwork.domain.Result.success;
 import static net.solarnetwork.node.reactor.Instruction.LOCAL_INSTRUCTION_ID;
+import static net.solarnetwork.service.OptionalService.requiredService;
 import static net.solarnetwork.service.OptionalService.service;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonEmptyArgument;
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,29 +66,34 @@ import net.solarnetwork.service.OptionalService;
 @RequestMapping("/api/v1/sec/instr")
 public class InstructionController {
 
-	@Autowired
-	@Qualifier("instructionExecutionService")
-	private OptionalService<InstructionExecutionService> instructionService;
-
-	@Autowired
-	@Qualifier("reactorService")
-	private OptionalService<ReactorService> reactorService;
-
-	@Autowired
-	@Qualifier("instructionDao")
-	private OptionalService<InstructionDao> instructionDao;
-
 	private final IdentityService identityService;
+	private final OptionalService<InstructionDao> instructionDao;
+	private final OptionalService<InstructionExecutionService> instructionService;
+	private final OptionalService<ReactorService> reactorService;
 
 	/**
 	 * Constructor.
 	 *
 	 * @param identityService
 	 *        the identity service
+	 * @param instructionDao
+	 *        the instruction DAO
+	 * @param instructionService
+	 *        the instruction execution service
+	 * @param reactorService
+	 *        the reactor service
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public InstructionController(IdentityService identityService) {
+	public InstructionController(IdentityService identityService,
+			@Qualifier("instructionDao") OptionalService<InstructionDao> instructionDao,
+			@Qualifier("instructionExecutionService") OptionalService<InstructionExecutionService> instructionService,
+			@Qualifier("reactorService") OptionalService<ReactorService> reactorService) {
 		super();
 		this.identityService = requireNonNullArgument(identityService, "identityService");
+		this.instructionDao = requireNonNullArgument(instructionDao, "instructionDao");
+		this.instructionService = requireNonNullArgument(instructionService, "instructionService");
+		this.reactorService = requireNonNullArgument(reactorService, "reactorService");
 	}
 
 	/**
@@ -132,16 +140,14 @@ public class InstructionController {
 		net.solarnetwork.node.reactor.Instruction localInstr = InstructionUtils
 				.localInstructionFrom(input);
 
-		BasicInstruction procInstr = new BasicInstruction(null, topic, localInstr.getInstructionDate(),
-				topic, localInstr.getStatus());
+		BasicInstruction procInstr = new BasicInstruction(localInstr.getId(), topic,
+				localInstr.getInstructionDate(), LOCAL_INSTRUCTION_ID, localInstr.getStatus());
 		BasicInstruction.copyParameters(localInstr, procInstr);
 		return doHandleInstruction(procInstr);
 	}
 
 	private Result<InstructionStatus> doHandleInstruction(Instruction input) {
-		if ( input.getTopic() == null || input.getTopic().isEmpty() ) {
-			throw new IllegalArgumentException("The topic parameter is required.");
-		}
+		requireNonEmptyArgument(input.getTopic(), "topic");
 
 		net.solarnetwork.node.reactor.Instruction localInstr = InstructionUtils
 				.localInstructionFrom(input);
@@ -207,7 +213,8 @@ public class InstructionController {
 		return success(result.isEmpty() ? null : result);
 	}
 
-	private net.solarnetwork.node.reactor.Instruction findOne(Long instructionId, String source) {
+	private net.solarnetwork.node.reactor.@Nullable Instruction findOne(Long instructionId,
+			String source) {
 		final InstructionDao dao = dao();
 		if ( source != null ) {
 			return dao.getInstruction(instructionId, source);
@@ -221,11 +228,7 @@ public class InstructionController {
 	}
 
 	private InstructionDao dao() {
-		InstructionDao dao = service(instructionDao);
-		if ( dao != null ) {
-			return dao;
-		}
-		throw new UnsupportedOperationException("Instruction DAO not available.");
+		return requiredService(instructionDao, "Instruction DAO");
 	}
 
 	private String solarInSource() {
@@ -282,37 +285,7 @@ public class InstructionController {
 		}
 		InstructionStatus status = InstructionUtils.createStatus(instr, state);
 		dao.compareAndStoreInstructionStatus(instr.getId(), instr.getInstructorId(),
-				instr.getInstructionState(), status);
-	}
-
-	/**
-	 * Set the instruction service.
-	 *
-	 * @param instructionService
-	 *        the service to set
-	 */
-	public void setInstructionService(OptionalService<InstructionExecutionService> instructionService) {
-		this.instructionService = instructionService;
-	}
-
-	/**
-	 * Set the reactor service.
-	 *
-	 * @param reactorService
-	 *        the service to set
-	 */
-	public void setReactorService(OptionalService<ReactorService> reactorService) {
-		this.reactorService = reactorService;
-	}
-
-	/**
-	 * Set the instruction DAO.
-	 *
-	 * @param instructionDao
-	 *        the DAO to set
-	 */
-	public void setInstructionDao(OptionalService<InstructionDao> instructionDao) {
-		this.instructionDao = instructionDao;
+				nonnull(instr.getInstructionState(), "Instruction state"), status);
 	}
 
 }
