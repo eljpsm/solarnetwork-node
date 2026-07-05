@@ -112,7 +112,7 @@ public class DefaultSecurityTokenService extends BaseIdentifiable implements Sec
 	}
 
 	@Override
-	public KeyValuePair createToken(SecurityToken details) {
+	public KeyValuePair createToken(@Nullable SecurityToken details) {
 		final SecurityTokenDao dao = dao();
 		final String tokenId = generateRandomToken(TOKEN_ID_LEN);
 		final String tokenSecret = generateRandomToken(TOKEN_SEC_LEN);

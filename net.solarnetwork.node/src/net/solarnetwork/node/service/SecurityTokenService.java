@@ -69,7 +69,7 @@ public interface SecurityTokenService {
 	 *        the optional details (name, description) to use
 	 * @return the token ID and token secret
 	 */
-	KeyValuePair createToken(SecurityToken details);
+	KeyValuePair createToken(@Nullable SecurityToken details);
 
 	/**
 	 * Update the modifiable values of a security token.
