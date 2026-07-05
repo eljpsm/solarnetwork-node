@@ -22,7 +22,9 @@
 
 package net.solarnetwork.node.setup.web.security;
 
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -39,7 +41,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.transaction.TransactionException;
-import org.springframework.util.Assert;
 import org.springframework.util.MimeType;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -50,6 +51,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.solarnetwork.node.domain.AuthenticatedToken;
+import net.solarnetwork.util.ObjectUtils;
 import net.solarnetwork.web.jakarta.security.AuthenticationData;
 import net.solarnetwork.web.jakarta.security.AuthenticationDataFactory;
 import net.solarnetwork.web.jakarta.security.SecurityHttpServletRequestWrapper;
@@ -70,10 +72,10 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 	/** The default value for the {@code maxRequestBodySize} property. */
 	public static final int DEFAULT_MAX_REQUEST_BODY_SIZE = 65535;
 
-	private AuthenticationDetailsSource<HttpServletRequest, ?> authenticationDetailsSource = new WebAuthenticationDetailsSource();
-	private SecurityTokenAuthenticationEntryPoint authenticationEntryPoint;
-	private UserDetailsService userDetailsService;
 	private final SecurityTokenFilterSettings settings;
+	private AuthenticationDetailsSource<HttpServletRequest, ?> authenticationDetailsSource = new WebAuthenticationDetailsSource();
+	private @Nullable SecurityTokenAuthenticationEntryPoint authenticationEntryPoint;
+	private @Nullable UserDetailsService userDetailsService;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -90,15 +92,15 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 	 * @param settings,
 	 *        or {@code null} to create a default instance
 	 */
-	public SecurityTokenAuthenticationFilter(SecurityTokenFilterSettings settings) {
+	public SecurityTokenAuthenticationFilter(@Nullable SecurityTokenFilterSettings settings) {
 		super();
 		this.settings = (settings != null ? settings : new SecurityTokenFilterSettings());
 	}
 
 	@Override
 	public void afterPropertiesSet() {
-		Assert.notNull(userDetailsService, "A UserDetailsService is required");
-		Assert.notNull(authenticationEntryPoint, "A SecurityTokenAuthenticationEntryPoint is required");
+		requireNonNullArgument(userDetailsService, "userDetailsService");
+		requireNonNullArgument(authenticationEntryPoint, "authenticationEntryPoint");
 	}
 
 	@Override
@@ -141,7 +143,7 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 
 		final UserDetails user;
 		try {
-			user = userDetailsService.loadUserByUsername(data.getAuthTokenId());
+			user = userDetailsService().loadUserByUsername(data.getAuthTokenId());
 		} catch ( AuthenticationException e ) {
 			log.debug("Auth token [{}] exception: {}", data.getAuthTokenId(), e.getMessage());
 			fail(request, response, new BadCredentialsException("Bad credentials"));
@@ -203,7 +205,7 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 			AuthenticationException failed) throws IOException, ServletException {
 		SecurityContextHolder.getContext().setAuthentication(null);
 		request.deleteCachedContent();
-		authenticationEntryPoint.commence(request, response, failed);
+		authenticationEntryPoint().commence(request, response, failed);
 	}
 
 	private void deny(SecurityHttpServletRequestWrapper request, HttpServletResponse response,
@@ -214,14 +216,22 @@ public class SecurityTokenAuthenticationFilter extends OncePerRequestFilter impl
 		if ( msg == null ) {
 			msg = "Access denied.";
 		}
-		authenticationEntryPoint.handle(request, response, new AccessDeniedException(msg, e));
+		authenticationEntryPoint().handle(request, response, new AccessDeniedException(msg, e));
 	}
 
 	private void failDao(SecurityHttpServletRequestWrapper request, HttpServletResponse response,
 			Exception failed) throws IOException, ServletException {
 		SecurityContextHolder.getContext().setAuthentication(null);
 		request.deleteCachedContent();
-		authenticationEntryPoint.handleTransientResourceException(request, response, failed);
+		authenticationEntryPoint().handleTransientResourceException(request, response, failed);
+	}
+
+	private SecurityTokenAuthenticationEntryPoint authenticationEntryPoint() {
+		return ObjectUtils.nonnull(authenticationEntryPoint, "SecurityTokenAuthenticationEntryPoint");
+	}
+
+	private UserDetailsService userDetailsService() {
+		return ObjectUtils.nonnull(userDetailsService, "UserDetailsService");
 	}
 
 	/**
