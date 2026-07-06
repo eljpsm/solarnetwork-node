@@ -1,21 +1,21 @@
 /* ==================================================================
  * SolarBackupResourceProvider.java - 25/06/2020 10:40:43 AM
- * 
+ *
  * Copyright 2020 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -23,14 +23,16 @@
 package net.solarnetwork.node.backup.ext;
 
 import static net.solarnetwork.node.Constants.solarNodeHome;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -46,7 +48,7 @@ import net.solarnetwork.node.backup.SimpleBackupResourceProviderInfo;
 /**
  * {@link BackupResourceProvider} that uses a "solarbackup" external command to
  * manage a single backup resource.
- * 
+ *
  * <p>
  * The command must accept the following arguments:
  * </p>
@@ -56,7 +58,7 @@ import net.solarnetwork.node.backup.SimpleBackupResourceProviderInfo;
  * <li><b>name</b> - the provider name, representing the unique backup
  * configuration to perform the action on</li>
  * </ol>
- * 
+ *
  * @author matt
  * @version 2.0
  */
@@ -79,10 +81,10 @@ public class SolarBackupResourceProvider implements BackupResourceProvider {
 	private String command = DEFAULT_COMMAND;
 	private String resourceBundleDir = DEFAULT_RESOURCE_BUNDLE_DIR;
 	private boolean useSudo = DEFAULT_USE_SUDO;
-	private String name;
+	private @Nullable String name;
 	private String backupResourceExtension = DEFAULT_BACKUP_RESOURCE_EXTENSION;
 
-	private MessageSource messageSource;
+	private @Nullable MessageSource messageSource;
 
 	/**
 	 * Constructor.
@@ -100,39 +102,40 @@ public class SolarBackupResourceProvider implements BackupResourceProvider {
 		if ( messageSource != null ) {
 			return messageSource;
 		}
+		final var ms = new ResourceBundleMessageSource();
 		File f = new File(resourceBundleDir);
 		try {
-			ResourceBundleMessageSource ms = new ResourceBundleMessageSource();
 			ms.setBundleClassLoader(new URLClassLoader(new URL[] { f.toURI().toURL() }));
 			ms.setBasename(name);
-			messageSource = ms;
-			return ms;
 		} catch ( MalformedURLException e ) {
 			log.warn("Error getting message bundle resource [{}]: {}", f, e.toString());
-			return null;
+			// ignore
 		}
+		messageSource = ms;
+		return ms;
 	}
 
 	@Override
-	public BackupResourceProviderInfo providerInfo(Locale locale) {
+	public BackupResourceProviderInfo providerInfo(@Nullable Locale locale) {
+		final MessageSource ms = messageSource();
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
 		String name = "External Backup Provider";
 		String desc = "Backs up device resources.";
-		MessageSource ms = messageSource();
 		if ( ms != null ) {
-			name = ms.getMessage("title", null, name, locale);
-			desc = ms.getMessage("desc", null, desc, locale);
+			name = nonnull(ms.getMessage("title", null, name, loc), "Name");
+			desc = nonnull(ms.getMessage("desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceProviderInfo(getKey(), name, desc);
 	}
 
 	@Override
-	public BackupResourceInfo resourceInfo(BackupResource resource, Locale locale) {
+	public BackupResourceInfo resourceInfo(BackupResource resource, @Nullable Locale locale) {
 		return new SimpleBackupResourceInfo(resource.getProviderKey(), resource.getBackupPath(), null);
 	}
 
 	@Override
 	public Iterable<BackupResource> getBackupResources() {
-		return Collections.singleton(new ExtBackupResource());
+		return List.of(new ExtBackupResource());
 	}
 
 	private String[] cmd(String action, String name) {
@@ -144,7 +147,7 @@ public class SolarBackupResourceProvider implements BackupResourceProvider {
 
 	@Override
 	public boolean restoreBackupResource(BackupResource resource) {
-		final String name = getName();
+		final String name = nonnull(getName(), "Name");
 		final String path = name + getBackupResourceExtension();
 		if ( !path.equals(resource.getBackupPath()) ) {
 			return false;
@@ -168,7 +171,7 @@ public class SolarBackupResourceProvider implements BackupResourceProvider {
 
 		private ExtBackupResource() {
 			super();
-			this.name = getName();
+			this.name = nonnull(getName(), "Name");
 			this.backupPath = this.name + getBackupResourceExtension();
 			this.modificationDate = System.currentTimeMillis();
 		}
@@ -196,7 +199,7 @@ public class SolarBackupResourceProvider implements BackupResourceProvider {
 		}
 
 		@Override
-		public String getSha256Digest() {
+		public @Nullable String getSha256Digest() {
 			return null;
 		}
 
@@ -204,89 +207,94 @@ public class SolarBackupResourceProvider implements BackupResourceProvider {
 
 	/**
 	 * Get the helper program command to use.
-	 * 
+	 *
 	 * @return the command; defaults to {@link #DEFAULT_COMMAND}
 	 */
-	public String getCommand() {
+	public final String getCommand() {
 		return command;
 	}
 
 	/**
 	 * Set the helper program command to use.
-	 * 
+	 *
 	 * @param command
-	 *        the command to set
+	 *        the command to set; if {@code null} then {@link #DEFAULT_COMMAND}
+	 *        will be used
 	 */
-	public void setCommand(String command) {
-		this.command = command;
+	public final void setCommand(String command) {
+		this.command = (command != null ? command : DEFAULT_COMMAND);
 	}
 
 	/**
 	 * Get the backup name being managed.
-	 * 
+	 *
 	 * @return the name
 	 */
-	public String getName() {
+	public final @Nullable String getName() {
 		return name;
 	}
 
 	/**
 	 * Set the backup name to manage.
-	 * 
+	 *
 	 * @param name
 	 *        the name to set
 	 */
-	public void setName(String name) {
+	public final void setName(@Nullable String name) {
 		this.name = name;
 	}
 
 	/**
 	 * Set the resource bundle directory path.
-	 * 
+	 *
 	 * @param resourceBundleDir
-	 *        the resourceBundleDir to set
+	 *        the resourceBundleDir to set; if {@code null} then
+	 *        {@link #DEFAULT_RESOURCE_BUNDLE_DIR} will be used
 	 */
-	public void setResourceBundleDir(String resourceBundleDir) {
-		this.resourceBundleDir = resourceBundleDir;
+	public final void setResourceBundleDir(String resourceBundleDir) {
+		this.resourceBundleDir = (resourceBundleDir != null ? resourceBundleDir
+				: DEFAULT_RESOURCE_BUNDLE_DIR);
 	}
 
 	/**
 	 * Get the backup resource path extension to use.
-	 * 
+	 *
 	 * @return the extension; defaults to
 	 *         {@link #DEFAULT_BACKUP_RESOURCE_EXTENSION}
 	 */
-	public String getBackupResourceExtension() {
+	public final String getBackupResourceExtension() {
 		return backupResourceExtension;
 	}
 
 	/**
 	 * Set the backup resource path extension to use.
-	 * 
+	 *
 	 * @param backupResourceExtension
-	 *        the backupResourceExtension to set
+	 *        the backupResourceExtension to set; if {@code null} then
+	 *        {@link #DEFAULT_BACKUP_RESOURCE_EXTENSION} will be used
 	 */
-	public void setBackupResourceExtension(String backupResourceExtension) {
-		this.backupResourceExtension = backupResourceExtension;
+	public final void setBackupResourceExtension(String backupResourceExtension) {
+		this.backupResourceExtension = (backupResourceExtension != null ? backupResourceExtension
+				: DEFAULT_BACKUP_RESOURCE_EXTENSION);
 	}
 
 	/**
 	 * Get the "use sudo" flag.
-	 * 
+	 *
 	 * @return {@literal true} to use the {@literal sudo} command; defaults to
 	 *         {@link #DEFAULT_USE_SUDO}
 	 */
-	public boolean isUseSudo() {
+	public final boolean isUseSudo() {
 		return useSudo;
 	}
 
 	/**
 	 * Set the "use sudo" flag.
-	 * 
+	 *
 	 * @param useSudo
 	 *        {@literal true} to use the {@literal sudo} command
 	 */
-	public void setUseSudo(boolean useSudo) {
+	public final void setUseSudo(boolean useSudo) {
 		this.useSudo = useSudo;
 	}
 
