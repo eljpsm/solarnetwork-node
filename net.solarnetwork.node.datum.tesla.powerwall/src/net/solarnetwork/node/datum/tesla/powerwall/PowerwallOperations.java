@@ -67,6 +67,7 @@ import net.solarnetwork.node.domain.datum.SimpleAcDcEnergyDatum;
 import net.solarnetwork.node.service.PlaceholderService;
 import net.solarnetwork.service.OptionalService;
 import net.solarnetwork.service.RemoteServiceException;
+import net.solarnetwork.util.ObjectUtils;
 
 /**
  * Access to Powerwall APIs.
@@ -389,8 +390,8 @@ public class PowerwallOperations implements Closeable {
 	}
 
 	private String resolveSourceId(String sourceId, String component) {
-		String result = PlaceholderService.resolvePlaceholders(placeholderService, sourceId,
-				Map.of(COMPONENT_PLACEHOLDER_NAME, component));
+		String result = ObjectUtils.nonnull(PlaceholderService.resolvePlaceholders(placeholderService,
+				sourceId, Map.of(COMPONENT_PLACEHOLDER_NAME, component)), "Source ID");
 		if ( !result.contains(component) ) {
 			result = result + '/' + component;
 		}
