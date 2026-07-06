@@ -1,36 +1,35 @@
 /* ==================================================================
  * RemoteSshConfig.java - 9/06/2017 4:48:21 PM
- * 
+ *
  * Copyright 2017 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
 
 package net.solarnetwork.node.system.ssh;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Remote SSH configuration model object.
- * 
+ *
  * @author matt
  * @version 1.0
  */
@@ -46,12 +45,12 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 	/**
 	 * Parse a configuration key, in the form returned by
 	 * {@link #toConfigKey()}.
-	 * 
+	 *
 	 * <p>
 	 * Messages are supported as well, as additional list items after the
 	 * required configuration items. If an additional message is provided with
 	 * the value {@literal error} then
-	 * 
+	 *
 	 * @param key
 	 *        the key to parse
 	 * @return the configuration object
@@ -87,7 +86,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Construct with values.
-	 * 
+	 *
 	 * @param user
 	 *        the user
 	 * @param host
@@ -103,7 +102,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Construct with values.
-	 * 
+	 *
 	 * @param user
 	 *        the user
 	 * @param host
@@ -119,26 +118,25 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 	 *        any additional messages associated with the configuration
 	 */
 	public RemoteSshConfig(String user, String host, Integer port, Integer reversePort, Boolean error,
-			Collection<String> messages) {
+			@Nullable Collection<String> messages) {
 		super();
 		this.user = user;
 		this.host = host;
 		this.port = port;
 		this.reversePort = reversePort;
 		this.error = error;
-		this.messages = (messages == null || messages.isEmpty() ? Collections.<String> emptyList()
-				: Collections.unmodifiableList(new ArrayList<String>(messages)));
+		this.messages = (messages == null || messages.isEmpty() ? List.of() : List.copyOf(messages));
 	}
 
 	/**
 	 * Encode the configuration as a "key" value.
-	 * 
+	 *
 	 * <p>
 	 * The returned value is a comma-delimited list of all configuration
 	 * properties, in {@code user}, {@code host}, {@code port},
 	 * {@code reversePort} order.
 	 * </p>
-	 * 
+	 *
 	 * @return the configuration key
 	 */
 	public String toConfigKey() {
@@ -149,7 +147,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Encode the configuration as a display-friendly info value.
-	 * 
+	 *
 	 * @return the display info
 	 */
 	public String toDisplayInfo() {
@@ -237,7 +235,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Get the connection user.
-	 * 
+	 *
 	 * @return the user
 	 */
 	public String getUser() {
@@ -246,7 +244,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Get the connection host.
-	 * 
+	 *
 	 * @return the host
 	 */
 	public String getHost() {
@@ -255,7 +253,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Get the connection port.
-	 * 
+	 *
 	 * @return the port
 	 */
 	public Integer getPort() {
@@ -264,7 +262,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Get the reverse connection port.
-	 * 
+	 *
 	 * @return the reversePort
 	 */
 	public Integer getReversePort() {
@@ -273,7 +271,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Get the error flag.
-	 * 
+	 *
 	 * @return {@literal true} if the configuration represents an error state
 	 */
 	public Boolean getError() {
@@ -282,7 +280,7 @@ public class RemoteSshConfig implements Comparable<RemoteSshConfig> {
 
 	/**
 	 * Any additional messages, such as error information.
-	 * 
+	 *
 	 * @return the messages
 	 */
 	public List<String> getMessages() {

@@ -1,35 +1,36 @@
 /* ==================================================================
  * RemoteSshService.java - 9/06/2017 3:58:02 PM
- * 
+ *
  * Copyright 2017 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
 
 package net.solarnetwork.node.system.ssh;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableSet;
+import static java.util.Objects.requireNonNullElseGet;
 import static net.solarnetwork.node.Constants.solarNodeHome;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ScheduledFuture;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -64,40 +66,40 @@ import net.solarnetwork.util.StringUtils;
 /**
  * Service to manage remote SSH connections with the help of a command-line
  * helper program.
- * 
+ *
  * <p>
  * The command-line helper program this has been designed for is the
  * {@literal solarssh.sh} bash script, but any program will work as long as it
  * follows this syntax:
  * </p>
- * 
+ *
  * <pre>
  * prog -u user -h host -p port -r reverse_port action
  * </pre>
- * 
+ *
  * <p>
  * The following actions are assumed:
  * </p>
- * 
+ *
  * <dl>
  * <dt>{@literal list}</dt>
  * <dd>list all known active connections, as a comma-delimited list of
  * {@literal user,host,port,reverse_port} values</dd>
- * 
+ *
  * <dt>{@literal showkey}</dt>
  * <dd>get the public SSH key to use</dd>
- * 
+ *
  * <dt>{@literal status}</dt>
  * <dd>get the status of a specific connection; must return {@literal active} if
  * active</dd>
- * 
+ *
  * <dt>{@literal start}</dt>
  * <dd>start a ssh connection</dd>
- * 
+ *
  * <dt>{@literal stop}</dt>
  * <dd>stop an active ssh connection</dd>
  * </dl>
- * 
+ *
  * @author matt
  * @version 2.0
  */
@@ -137,7 +139,7 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 
 	/**
 	 * The default value for the {@code command} property.
-	 * 
+	 *
 	 * <p>
 	 * This is {@link Constants#solarNodeHome()} with {@literal /bin/solarssh}.
 	 * </p>
@@ -149,19 +151,19 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 
 	private String command;
 	private Set<String> allowedHosts;
-	private MessageSource messageSource;
-	private TaskScheduler taskScheduler;
-	private ScheduledFuture<?> maintenanceFuture;
-	private OptionalService<NodeMetadataService> nodeMetadataService;
+	private @Nullable MessageSource messageSource;
+	private @Nullable TaskScheduler taskScheduler;
+	private @Nullable ScheduledFuture<?> maintenanceFuture;
+	private @Nullable OptionalService<NodeMetadataService> nodeMetadataService;
 
-	private final Set<RemoteSshConfig> configs = new ConcurrentSkipListSet<RemoteSshConfig>();
+	private final Set<RemoteSshConfig> configs = new ConcurrentSkipListSet<>();
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
 	public RemoteSshService() {
 		super();
-		this.allowedHosts = unmodifiableSet(new HashSet<String>(asList("data.solarnetwork.net")));
 		this.command = DEFAULT_COMMAND;
+		this.allowedHosts = Set.of("data.solarnetwork.net");
 	}
 
 	private class ConnectionMaintenanceTask implements Runnable {
@@ -206,7 +208,7 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 			return;
 		}
 		maintenanceFuture = taskScheduler.scheduleWithFixedDelay(new ConnectionMaintenanceTask(),
-				120000);
+				Duration.ofMinutes(2));
 	}
 
 	private void performConnectionMaintenance() {
@@ -245,37 +247,40 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return (TOPIC_START_REMOTE_SSH.equalsIgnoreCase(topic)
 				|| TOPIC_STOP_REMOTE_SSH.equalsIgnoreCase(topic));
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
+		final String topic = instruction.getTopic();
+		if ( topic == null || !handlesTopic(topic) ) {
+			return null;
+		}
 		InstructionStatus result = null;
-		if ( instruction != null ) {
-			if ( TOPIC_START_REMOTE_SSH.equalsIgnoreCase(instruction.getTopic()) ) {
-				// make sure current public key is published, in case it has changed
-				boolean published = publishSshPublicKey();
 
-				result = handleStartRemoteSsh(instruction);
-				if ( result != null && result.getInstructionState() == InstructionState.Completed
-						&& !published ) {
-					// try again; the SSH key might have been generated when the service started
-					publishSshPublicKey();
-				}
-			} else if ( TOPIC_STOP_REMOTE_SSH.equalsIgnoreCase(instruction.getTopic()) ) {
-				result = handleStopRemoteSsh(instruction);
+		if ( TOPIC_START_REMOTE_SSH.equalsIgnoreCase(topic) ) {
+			// make sure current public key is published, in case it has changed
+			boolean published = publishSshPublicKey();
+
+			result = handleStartRemoteSsh(instruction);
+			if ( result != null && result.getInstructionState() == InstructionState.Completed
+					&& !published ) {
+				// try again; the SSH key might have been generated when the service started
+				publishSshPublicKey();
 			}
+		} else if ( TOPIC_STOP_REMOTE_SSH.equalsIgnoreCase(topic) ) {
+			result = handleStopRemoteSsh(instruction);
 		}
 		return result;
 	}
 
 	private InstructionStatus statusWithError(Instruction instruction, String code, String message) {
-		Map<String, Object> resultParams = new LinkedHashMap<String, Object>();
+		Map<String, Object> resultParams = new LinkedHashMap<>();
 		resultParams.put(InstructionStatus.ERROR_CODE_RESULT_PARAM, code);
 		resultParams.put(InstructionStatus.MESSAGE_RESULT_PARAM, message);
-		return instruction.getStatus().newCopyWithState(InstructionState.Declined, resultParams);
+		return InstructionUtils.createStatus(instruction, InstructionState.Declined, resultParams);
 	}
 
 	private InstructionStatus handleStartRemoteSsh(Instruction instruction) {
@@ -283,7 +288,8 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 		try {
 			config = configForInstruction(instruction);
 		} catch ( IllegalArgumentException e ) {
-			return statusWithError(instruction, "5001", e.getMessage());
+			return statusWithError(instruction, "5001",
+					requireNonNullElseGet(e.getMessage(), e::toString));
 		}
 
 		Map<String, Object> resultParams = new LinkedHashMap<String, Object>();
@@ -304,7 +310,8 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 		try {
 			config = configForInstruction(instruction);
 		} catch ( IllegalArgumentException e ) {
-			return statusWithError(instruction, "5001", e.getMessage());
+			return statusWithError(instruction, "5001",
+					requireNonNullElseGet(e.getMessage(), e::toString));
 		}
 		Map<String, Object> resultParams = new LinkedHashMap<String, Object>();
 		boolean stopped = stopRemoteSsh(config, resultParams);
@@ -322,15 +329,18 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 					StringUtils.commaDelimitedStringFromCollection(allowedHosts));
 			throw new IllegalArgumentException("Host " + host + " not in allowed SSH hosts");
 		}
-		String user = instruction.getParameterValue(PARAM_USERNAME);
-		String port = instruction.getParameterValue(PARAM_PORT);
-		String reversePort = instruction.getParameterValue(PARAM_REVERSE_PORT);
+		String user = requireNonNullArgument(instruction.getParameterValue(PARAM_USERNAME),
+				PARAM_USERNAME);
+		String port = requireNonNullArgument(instruction.getParameterValue(PARAM_PORT), PARAM_PORT);
+		String reversePort = requireNonNullArgument(instruction.getParameterValue(PARAM_REVERSE_PORT),
+				PARAM_REVERSE_PORT);
 		RemoteSshConfig config;
 		try {
 			config = new RemoteSshConfig(user, host, Integer.valueOf(port),
 					Integer.valueOf(reversePort));
 		} catch ( NumberFormatException e ) {
-			log.warn("Bad port or reverse port value: {}", e.getMessage());
+			log.warn("Bad port or reverse port value: {}",
+					requireNonNullElseGet(e.getMessage(), e::toString));
 			throw new IllegalArgumentException("Bad port or reverse port value");
 		}
 		return config;
@@ -469,7 +479,7 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 
 	/**
 	 * Set the helper program command to use.
-	 * 
+	 *
 	 * @param command
 	 *        the command to set
 	 */
@@ -479,20 +489,20 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 
 	/**
 	 * Set the hosts that are allowed for connecting to via SSH by this service.
-	 * 
+	 *
 	 * @param allowedHosts
 	 *        the allowedHosts to set; the set is copied
 	 */
-	public void setAllowedHosts(Set<String> allowedHosts) {
+	public void setAllowedHosts(@Nullable Set<String> allowedHosts) {
 		Set<String> allowed;
 		if ( allowedHosts == null || allowedHosts.isEmpty() ) {
-			allowed = Collections.emptySet();
+			allowed = Set.of();
 		} else {
 			allowed = new HashSet<String>(allowedHosts.size());
 			for ( String host : allowedHosts ) {
 				allowed.add(host.toLowerCase());
 			}
-			allowed = Collections.unmodifiableSet(allowed);
+			allowed = Set.copyOf(allowed);
 		}
 		this.allowedHosts = allowed;
 	}
@@ -500,7 +510,7 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 	/**
 	 * Set the hosts that are allowed for connecting to via SSH by this service,
 	 * as a comma-delimited list.
-	 * 
+	 *
 	 * @param list
 	 *        a comma-delimited list of hosts to allow
 	 * @see RemoteSshService#setAllowedHosts(Set)
@@ -521,8 +531,9 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 
 	@Override
 	public List<SettingSpecifier> getSettingSpecifiers() {
-		List<SettingSpecifier> results = new ArrayList<SettingSpecifier>(2);
+		List<SettingSpecifier> results = new ArrayList<>(2);
 
+		final MessageSource messageSource = nonnull(this.messageSource, "MessageSource");
 		RemoteSshService defaults = new RemoteSshService();
 		Locale locale = Locale.getDefault();
 
@@ -531,7 +542,7 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 			infos.add(getInfoMessage(config, locale));
 		}
 		if ( infos.size() > 0 ) {
-			List<SettingSpecifier> groupSettings = new ArrayList<SettingSpecifier>(infos.size() + 1);
+			List<SettingSpecifier> groupSettings = new ArrayList<>(infos.size() + 1);
 			groupSettings.add(new BasicTitleSettingSpecifier("info",
 					messageSource.getMessage("info.connections", new Object[] { infos.size() }, locale),
 					true));
@@ -568,37 +579,38 @@ public class RemoteSshService implements InstructionHandler, SettingSpecifierPro
 	}
 
 	@Override
-	public MessageSource getMessageSource() {
+	public final @Nullable MessageSource getMessageSource() {
 		return messageSource;
 	}
 
 	/**
 	 * Set a message source to use for i18n messages.
-	 * 
+	 *
 	 * @param messageSource
 	 *        The message source to use.
 	 */
-	public void setMessageSource(MessageSource messageSource) {
+	public final void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 
 	/**
 	 * Set a task scheduler to help with monitoring connections.
-	 * 
+	 *
 	 * @param taskScheduler
 	 *        the taskScheduler to set
 	 */
-	public void setTaskScheduler(TaskScheduler taskScheduler) {
+	public final void setTaskScheduler(@Nullable TaskScheduler taskScheduler) {
 		this.taskScheduler = taskScheduler;
 	}
 
 	/**
 	 * Set the optional node metadata service to use.
-	 * 
+	 *
 	 * @param nodeMetadataService
 	 *        the nodeMetadataService to set
 	 */
-	public void setNodeMetadataService(OptionalService<NodeMetadataService> nodeMetadataService) {
+	public final void setNodeMetadataService(
+			@Nullable OptionalService<NodeMetadataService> nodeMetadataService) {
 		this.nodeMetadataService = nodeMetadataService;
 	}
 
