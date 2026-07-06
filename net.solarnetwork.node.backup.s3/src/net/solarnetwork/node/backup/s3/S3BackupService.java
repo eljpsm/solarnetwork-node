@@ -23,7 +23,8 @@
 package net.solarnetwork.node.backup.s3;
 
 import static java.time.ZoneOffset.UTC;
-import static java.util.Collections.singletonMap;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +33,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -47,6 +47,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.util.MimeType;
 import net.solarnetwork.common.s3.S3Client;
@@ -139,20 +140,20 @@ public class S3BackupService extends BackupServiceSupport
 	private static final String META_OBJECT_KEY_PREFIX = "backup-meta/";
 	private static final String DATA_OBJECT_KEY_PREFIX = "backup-data/";
 
-	private String objectKeyPrefix;
-	private MessageSource messageSource;
-	private OptionalService<IdentityService> identityService;
+	private @Nullable String objectKeyPrefix;
+	private @Nullable MessageSource messageSource;
+	private @Nullable OptionalService<IdentityService> identityService;
 	private int cacheSeconds;
 	private int additionalBackupCount;
-	private String storageClass;
+	private @Nullable String storageClass;
 
 	private SdkS3Client s3Client = new SdkS3Client();
 
 	private final AtomicReference<BackupStatus> status = new AtomicReference<>(
 			BackupStatus.Unconfigured);
 
-	private final AtomicReference<S3BackupMetadata> inProgressBackup = new AtomicReference<>();
-	private final AtomicReference<CachedResult<List<Backup>>> cachedBackupList = new AtomicReference<>();
+	private final AtomicReference<@Nullable S3BackupMetadata> inProgressBackup = new AtomicReference<>();
+	private final AtomicReference<@Nullable CachedResult<List<Backup>>> cachedBackupList = new AtomicReference<>();
 
 	private static final ConcurrentMap<String, CachedResult<S3BackupMetadata>> CACHED_BACKUPS = new ConcurrentHashMap<>(
 			8);
@@ -169,7 +170,7 @@ public class S3BackupService extends BackupServiceSupport
 	}
 
 	@Override
-	public void configurationChanged(Map<String, Object> properties) {
+	public void configurationChanged(@Nullable Map<String, Object> properties) {
 		s3Client.configurationChanged(properties);
 		setupClient();
 		cachedBackupList.set(null);
@@ -192,7 +193,7 @@ public class S3BackupService extends BackupServiceSupport
 	}
 
 	@Override
-	public Backup performBackup(Iterable<BackupResource> resources) {
+	public @Nullable Backup performBackup(Iterable<BackupResource> resources) {
 		final Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 		return performBackupInternal(resources, now, null);
 	}
@@ -219,18 +220,17 @@ public class S3BackupService extends BackupServiceSupport
 		String sha256 = new String(Hex.encodeHex(digest.digest()));
 
 		return new S3ObjectMeta(contentLength, modified, storageClass,
-				S3ObjectMetadata.DEFAULT_CONTENT_TYPE, singletonMap(CONTENT_SHA256_KEY, sha256));
+				S3ObjectMetadata.DEFAULT_CONTENT_TYPE, Map.of(CONTENT_SHA256_KEY, sha256));
 	}
 
 	private void setupClient() {
-		SdkS3Client c = s3Client;
-		if ( c != null && c.isConfigured() ) {
+		if ( s3Client.isConfigured() ) {
 			status.set(BackupStatus.Configured);
 		}
 	}
 
-	private Backup performBackupInternal(final Iterable<BackupResource> resources, final Instant now,
-			Map<String, String> props) {
+	private @Nullable Backup performBackupInternal(final Iterable<BackupResource> resources,
+			final Instant now, @Nullable Map<String, String> props) {
 		if ( resources == null ) {
 			return null;
 		}
@@ -257,13 +257,14 @@ public class S3BackupService extends BackupServiceSupport
 			final Set<S3ObjectReference> allDataObjects = client
 					.listObjects(objectKeyForPath(DATA_OBJECT_KEY_PREFIX));
 
-			S3BackupMetadata meta = new S3BackupMetadata();
+			final S3BackupMetadata meta = new S3BackupMetadata(metaName, Date.from(now));
 			meta.setNodeId(nodeId);
 			MessageDigest digest = DigestUtils.getSha256Digest();
 			byte[] buf = new byte[4096];
 			for ( BackupResource rsrc : resources ) {
 				S3ObjectMeta objMeta = setupMetadata(rsrc, digest, buf);
-				String sha = (String) objMeta.getExtendedMetadata().get(CONTENT_SHA256_KEY);
+				String sha = (String) nonnull(objMeta.getExtendedMetadata(), "Extended metadata")
+						.get(CONTENT_SHA256_KEY);
 				String objectKey = objectKeyForPath(DATA_OBJECT_KEY_PREFIX + sha);
 
 				// see if already exists
@@ -279,8 +280,6 @@ public class S3BackupService extends BackupServiceSupport
 
 			// now save metadata
 			meta.setComplete(true);
-			meta.setDate(Date.from(now));
-			meta.setKey(metaName);
 			byte[] metaJsonBytes = OBJECT_MAPPER.writeValueAsBytes(meta);
 			try (ByteArrayInputStream in = new ByteArrayInputStream(metaJsonBytes)) {
 				S3ObjectReference metaRef = client.putObject(metaObjectKey, in,
@@ -340,7 +339,7 @@ public class S3BackupService extends BackupServiceSupport
 		}
 	}
 
-	private Long nodeId(Map<String, String> props) {
+	private Long nodeId(@Nullable Map<String, String> props) {
 		Long nodeId = backupNodeIdFromProps(null, props);
 		if ( nodeId == 0L ) {
 			nodeId = nodeId();
@@ -355,11 +354,11 @@ public class S3BackupService extends BackupServiceSupport
 	}
 
 	@Override
-	public Backup backupForKey(String key) {
+	public @Nullable Backup backupForKey(String key) {
 		return backupForKeyInternal(key);
 	}
 
-	private S3BackupMetadata backupForKeyInternal(String key) {
+	private @Nullable S3BackupMetadata backupForKeyInternal(String key) {
 		String backupKey = canonicalObjectKeyForBackupKey(key);
 		CachedResult<S3BackupMetadata> cachedBackup = CACHED_BACKUPS.get(backupKey);
 		if ( cachedBackup != null && cachedBackup.isValid() ) {
@@ -414,7 +413,7 @@ public class S3BackupService extends BackupServiceSupport
 	}
 
 	@Override
-	public FilterResults<Backup, String> findBackups(BackupFilter filter) {
+	public FilterResults<Backup, String> findBackups(@Nullable BackupFilter filter) {
 		if ( EnumSet.of(BackupStatus.Unconfigured, BackupStatus.Error).contains(status.get()) ) {
 			return new BasicFilterResults<>(List.of());
 		}
@@ -439,7 +438,7 @@ public class S3BackupService extends BackupServiceSupport
 	private List<Backup> getAvailableBackupsInternal() {
 		CachedResult<List<Backup>> cached = cachedBackupList.get();
 		if ( cached != null && cached.isValid() ) {
-			return cached.getResult();
+			return nonnull(cached.getResult(), "Cached backup list");
 		}
 		List<Backup> result = getBackupsForPrefix(null);
 		if ( result != null && !result.isEmpty() ) {
@@ -449,9 +448,9 @@ public class S3BackupService extends BackupServiceSupport
 		return result;
 	}
 
-	private List<Backup> getBackupsForPrefix(String prefix) {
+	private List<Backup> getBackupsForPrefix(@Nullable String prefix) {
 		if ( EnumSet.of(BackupStatus.Unconfigured, BackupStatus.Error).contains(status.get()) ) {
-			return Collections.emptyList();
+			return List.of();
 		}
 		final S3Client client = this.s3Client;
 		final String objectKeyPrefix = objectKeyForPath(META_OBJECT_KEY_PREFIX);
@@ -465,13 +464,15 @@ public class S3BackupService extends BackupServiceSupport
 		} catch ( RemoteServiceException | IOException e ) {
 			log.warn("Error listing S3 avaialble backups with prefix {}: {}", objectKeyPrefix,
 					e.getMessage());
-			return Collections.emptyList();
+			return List.of();
 		}
 	}
 
 	private Function<S3ObjectReference, Backup> backupListItem(String objectKeyPrefix) {
 		return o -> new SimpleBackup(
-				identityFromBackupKey(pathWithoutPrefix(o.getKey(), objectKeyPrefix)), null, true);
+				nonnull(identityFromBackupKey(pathWithoutPrefix(o.getKey(), objectKeyPrefix)),
+						"Backup identity"),
+				null, true);
 	}
 
 	/**
@@ -503,13 +504,14 @@ public class S3BackupService extends BackupServiceSupport
 	public BackupResourceIterable getBackupResources(Backup backup) {
 		S3Client client = this.s3Client;
 		if ( EnumSet.of(BackupStatus.Unconfigured, BackupStatus.Error).contains(status.get()) ) {
-			return new CollectionBackupResourceIterable(Collections.emptyList());
+			return new CollectionBackupResourceIterable(List.of());
 		}
 
 		// try to return a cached value if we can
 		String backupKey = canonicalObjectKeyForBackupKey(backup.getKey());
 		S3BackupMetadata meta = backupForKeyInternal(backupKey);
-		List<S3BackupResourceMetadata> resourceMetaList = meta.getResourceMetadata();
+		List<S3BackupResourceMetadata> resourceMetaList = (meta != null ? meta.getResourceMetadata()
+				: null);
 		if ( resourceMetaList == null ) {
 			try {
 				String metaKey = objectKeyForBackup(backup);
@@ -528,7 +530,7 @@ public class S3BackupService extends BackupServiceSupport
 			}
 		}
 		if ( resourceMetaList == null || resourceMetaList.isEmpty() ) {
-			return new CollectionBackupResourceIterable(Collections.emptyList());
+			return new CollectionBackupResourceIterable(List.of());
 		}
 		List<BackupResource> resources = resourceMetaList.stream()
 				.map(m -> new S3BackupResource(client, m)).collect(Collectors.toList());
@@ -536,7 +538,8 @@ public class S3BackupService extends BackupServiceSupport
 	}
 
 	@Override
-	public Backup importBackup(Date date, BackupResourceIterable resources, Map<String, String> props) {
+	public @Nullable Backup importBackup(@Nullable Date date, BackupResourceIterable resources,
+			@Nullable Map<String, String> props) {
 		final Date backupDate = backupDateFromProps(date, props);
 		final Instant ts = backupDate.toInstant().truncatedTo(ChronoUnit.SECONDS);
 		return performBackupInternal(resources, ts, props);
@@ -558,12 +561,12 @@ public class S3BackupService extends BackupServiceSupport
 	}
 
 	@Override
-	public String getDisplayName() {
+	public @Nullable String getDisplayName() {
 		return "S3 Backup Service";
 	}
 
 	@Override
-	public MessageSource getMessageSource() {
+	public @Nullable MessageSource getMessageSource() {
 		return messageSource;
 	}
 
@@ -639,7 +642,7 @@ public class S3BackupService extends BackupServiceSupport
 	 * @return the prefix; defaults to {@link #DEFAULT_OBJECT_KEY_PREFIX}
 	 * @since 1.3
 	 */
-	public String getObjectKeyPrefix() {
+	public @Nullable String getObjectKeyPrefix() {
 		return objectKeyPrefix;
 	}
 
@@ -653,7 +656,7 @@ public class S3BackupService extends BackupServiceSupport
 	 * @param objectKeyPrefix
 	 *        the object key prefix to set
 	 */
-	public void setObjectKeyPrefix(String objectKeyPrefix) {
+	public void setObjectKeyPrefix(@Nullable String objectKeyPrefix) {
 		this.objectKeyPrefix = objectKeyPrefix;
 	}
 
@@ -663,7 +666,7 @@ public class S3BackupService extends BackupServiceSupport
 	 * @param identityService
 	 *        the service to set
 	 */
-	public void setIdentityService(OptionalService<IdentityService> identityService) {
+	public void setIdentityService(@Nullable OptionalService<IdentityService> identityService) {
 		this.identityService = identityService;
 	}
 
@@ -692,9 +695,11 @@ public class S3BackupService extends BackupServiceSupport
 	 *
 	 * @param s3Client
 	 *        the client
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public void setS3Client(SdkS3Client s3Client) {
-		this.s3Client = s3Client;
+		this.s3Client = requireNonNullArgument(s3Client, "s3Client");
 	}
 
 	/**
@@ -721,7 +726,7 @@ public class S3BackupService extends BackupServiceSupport
 	 * @return the S3 storage class; defaults to {@link #DEFAULT_STORAGE_CLASS}
 	 * @since 1.2
 	 */
-	public String getStorageClass() {
+	public @Nullable String getStorageClass() {
 		return storageClass;
 	}
 
@@ -732,7 +737,7 @@ public class S3BackupService extends BackupServiceSupport
 	 *        the S3 storage class to set
 	 * @since 1.2
 	 */
-	public void setStorageClass(String storageClass) {
+	public void setStorageClass(@Nullable String storageClass) {
 		this.storageClass = storageClass;
 	}
 

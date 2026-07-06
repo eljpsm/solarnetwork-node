@@ -35,7 +35,7 @@ public class SimpleBackup implements Backup {
 
 	private final Date date;
 	private final String key;
-	private final Long size;
+	private final @Nullable Long size;
 	private final boolean complete;
 	private final @Nullable Long nodeId;
 	private final @Nullable String qualifier;
@@ -52,7 +52,7 @@ public class SimpleBackup implements Backup {
 	 * @param complete
 	 *        the complete flag
 	 */
-	public SimpleBackup(Date date, String key, Long size, boolean complete) {
+	public SimpleBackup(Date date, String key, @Nullable Long size, boolean complete) {
 		this(null, date, key, size, complete);
 	}
 
@@ -70,7 +70,8 @@ public class SimpleBackup implements Backup {
 	 * @param complete
 	 *        the complete flag
 	 */
-	public SimpleBackup(@Nullable Long nodeId, Date date, String key, Long size, boolean complete) {
+	public SimpleBackup(@Nullable Long nodeId, Date date, String key, @Nullable Long size,
+			boolean complete) {
 		this(nodeId, date, null, key, size, complete);
 	}
 
@@ -92,7 +93,7 @@ public class SimpleBackup implements Backup {
 	 * @since 1.2
 	 */
 	public SimpleBackup(@Nullable Long nodeId, Date date, @Nullable String qualifier, String key,
-			Long size, boolean complete) {
+			@Nullable Long size, boolean complete) {
 		super();
 		this.nodeId = nodeId;
 		this.date = date;
@@ -113,7 +114,7 @@ public class SimpleBackup implements Backup {
 	 *        the complete flag
 	 * @since 1.2
 	 */
-	public SimpleBackup(BackupIdentity ident, Long size, boolean complete) {
+	public SimpleBackup(BackupIdentity ident, @Nullable Long size, boolean complete) {
 		this(ident.getNodeId(), ident.getDate(), ident.getQualifier(), ident.getKey(), size, complete);
 	}
 
@@ -138,7 +139,7 @@ public class SimpleBackup implements Backup {
 	}
 
 	@Override
-	public final Long getSize() {
+	public final @Nullable Long getSize() {
 		return size;
 	}
 

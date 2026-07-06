@@ -22,9 +22,13 @@
 
 package net.solarnetwork.node.backup.s3;
 
+import static java.util.Objects.requireNonNullElse;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import net.solarnetwork.common.s3.S3ObjectReference;
@@ -42,19 +46,27 @@ import net.solarnetwork.node.backup.BackupResource;
 @JsonIgnoreProperties({ "id" })
 public class S3BackupMetadata implements Backup {
 
-	private Long nodeId;
+	private @Nullable Long nodeId;
 	private String key;
 	private Date date;
-	private String qualifier;
+	private @Nullable String qualifier;
 	private boolean complete;
 
-	private List<S3BackupResourceMetadata> resourceMetadata;
+	private @Nullable List<S3BackupResourceMetadata> resourceMetadata;
 
 	/**
-	 * Constructor.
+	 * Construct with a key and date.
+	 *
+	 * @param key
+	 *        the key
+	 * @param date
+	 *        the date
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
-	public S3BackupMetadata() {
-		this(null);
+	public S3BackupMetadata(String key, Date date) {
+		this.key = requireNonNullArgument(key, "key");
+		this.date = requireNonNullArgument(date, "date");
 	}
 
 	/**
@@ -62,18 +74,30 @@ public class S3BackupMetadata implements Backup {
 	 *
 	 * @param objRef
 	 *        the object reference
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public S3BackupMetadata(S3ObjectReference objRef) {
 		super();
-		if ( objRef != null ) {
-			this.date = objRef.getModified();
-			setKey(objRef.getKey());
-			this.complete = true;
-		} else {
-			this.nodeId = null;
-			this.key = null;
-			this.date = null;
-			this.complete = false;
+		objRef = requireNonNullArgument(objRef, "objRef");
+		this.date = requireNonNullElse(objRef.getModified(), Date.from(Instant.EPOCH));
+		this.key = objRef.getKey();
+		this.complete = true;
+		extractKeyComponents(this.key);
+	}
+
+	private void extractKeyComponents(String key) {
+		BackupIdentity ident = S3BackupService.identityFromBackupKey(key);
+		if ( ident != null ) {
+			if ( this.nodeId == null ) {
+				setNodeId(ident.getNodeId());
+			}
+			if ( this.date == null ) {
+				setDate(ident.getDate());
+			}
+			if ( this.qualifier == null ) {
+				setQualifier(ident.getQualifier());
+			}
 		}
 	}
 
@@ -87,21 +111,12 @@ public class S3BackupMetadata implements Backup {
 	 *
 	 * @param key
 	 *        the key to set
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public void setKey(String key) {
-		this.key = key;
-		BackupIdentity ident = S3BackupService.identityFromBackupKey(key);
-		if ( ident != null ) {
-			if ( this.nodeId == null ) {
-				setNodeId(ident.getNodeId());
-			}
-			if ( this.date == null ) {
-				setDate(ident.getDate());
-			}
-			if ( this.qualifier == null ) {
-				setQualifier(ident.getQualifier());
-			}
-		}
+		this.key = requireNonNullArgument(key, "key");
+		extractKeyComponents(this.key);
 	}
 
 	@Override
@@ -125,12 +140,12 @@ public class S3BackupMetadata implements Backup {
 	}
 
 	@Override
-	public Long getSize() {
+	public @Nullable Long getSize() {
 		return null;
 	}
 
 	@Override
-	public Long getNodeId() {
+	public @Nullable Long getNodeId() {
 		return nodeId;
 	}
 
@@ -140,7 +155,7 @@ public class S3BackupMetadata implements Backup {
 	 * @param nodeId
 	 *        the node ID to set
 	 */
-	public void setNodeId(Long nodeId) {
+	public void setNodeId(@Nullable Long nodeId) {
 		this.nodeId = nodeId;
 	}
 
@@ -162,15 +177,11 @@ public class S3BackupMetadata implements Backup {
 	 * @param objectKey
 	 *        the S3 object key
 	 * @param digest
-	 *        the digest of the resource contents
+	 *        the digest of the resource contents, if known
 	 */
-	public void addBackupResource(BackupResource resource, String objectKey, String digest) {
-		S3BackupResourceMetadata meta = new S3BackupResourceMetadata();
-		meta.setBackupPath(resource.getBackupPath());
-		meta.setModificationDate(resource.getModificationDate());
-		meta.setProviderKey(resource.getProviderKey());
-		meta.setObjectKey(objectKey);
-		meta.setDigest(digest);
+	public void addBackupResource(BackupResource resource, String objectKey, @Nullable String digest) {
+		var meta = new S3BackupResourceMetadata(resource.getBackupPath(), resource.getModificationDate(),
+				resource.getProviderKey(), objectKey, digest);
 		if ( resourceMetadata == null ) {
 			resourceMetadata = new ArrayList<>(16);
 		}
@@ -182,7 +193,7 @@ public class S3BackupMetadata implements Backup {
 	 *
 	 * @return the metadata
 	 */
-	public List<S3BackupResourceMetadata> getResourceMetadata() {
+	public @Nullable List<S3BackupResourceMetadata> getResourceMetadata() {
 		return resourceMetadata;
 	}
 
@@ -192,12 +203,12 @@ public class S3BackupMetadata implements Backup {
 	 * @param resourceMetadata
 	 *        the metadata to set
 	 */
-	public void setResourceMetadata(List<S3BackupResourceMetadata> resourceMetadata) {
+	public void setResourceMetadata(@Nullable List<S3BackupResourceMetadata> resourceMetadata) {
 		this.resourceMetadata = resourceMetadata;
 	}
 
 	@Override
-	public String getQualifier() {
+	public @Nullable String getQualifier() {
 		return qualifier;
 	}
 
@@ -207,7 +218,7 @@ public class S3BackupMetadata implements Backup {
 	 * @param qualifier
 	 *        the qualifier to set
 	 */
-	public void setQualifier(String qualifier) {
+	public void setQualifier(@Nullable String qualifier) {
 		this.qualifier = qualifier;
 	}
 

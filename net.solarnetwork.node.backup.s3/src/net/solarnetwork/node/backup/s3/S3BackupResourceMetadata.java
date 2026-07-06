@@ -22,25 +22,47 @@
 
 package net.solarnetwork.node.backup.s3;
 
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
+import org.jspecify.annotations.Nullable;
+
 /**
  * Metadata on a single backup resource within a backup.
  *
  * @author matt
- * @version 1.0
+ * @version 1.1
  */
 public class S3BackupResourceMetadata {
 
-	private String backupPath;
-	private long modificationDate;
-	private String providerKey;
-	private String objectKey;
-	private String digest;
+	private final String backupPath;
+	private final long modificationDate;
+	private final String providerKey;
+	private final String objectKey;
+	private final @Nullable String digest;
 
 	/**
 	 * Constructor.
+	 *
+	 * @param backupPath
+	 *        the backup path
+	 * @param modificationDate
+	 *        the modification date
+	 * @param providerKey
+	 *        the provider key
+	 * @param objectKey
+	 *        the object key
+	 * @param digest
+	 *        the optional content digest
+	 * @throws IllegalArgumentException
+	 *         if any argument except {@code digest} is {@code null}
 	 */
-	public S3BackupResourceMetadata() {
+	public S3BackupResourceMetadata(String backupPath, long modificationDate, String providerKey,
+			String objectKey, @Nullable String digest) {
 		super();
+		this.backupPath = requireNonNullArgument(backupPath, "backupPath");
+		this.modificationDate = modificationDate;
+		this.providerKey = requireNonNullArgument(providerKey, "providerKey");
+		this.objectKey = requireNonNullArgument(objectKey, "objectKey");
+		this.digest = digest;
 	}
 
 	/**
@@ -48,7 +70,7 @@ public class S3BackupResourceMetadata {
 	 *
 	 * @return the backup path
 	 */
-	public String getBackupPath() {
+	public final String getBackupPath() {
 		return backupPath;
 	}
 
@@ -57,7 +79,7 @@ public class S3BackupResourceMetadata {
 	 *
 	 * @return the modification date
 	 */
-	public long getModificationDate() {
+	public final long getModificationDate() {
 		return modificationDate;
 	}
 
@@ -66,38 +88,8 @@ public class S3BackupResourceMetadata {
 	 *
 	 * @return the provider key
 	 */
-	public String getProviderKey() {
+	public final String getProviderKey() {
 		return providerKey;
-	}
-
-	/**
-	 * Set the backup path.
-	 *
-	 * @param backupPath
-	 *        the backup path to set
-	 */
-	public void setBackupPath(String backupPath) {
-		this.backupPath = backupPath;
-	}
-
-	/**
-	 * Set the modification date.
-	 *
-	 * @param modificationDate
-	 *        the modification date to set
-	 */
-	public void setModificationDate(long modificationDate) {
-		this.modificationDate = modificationDate;
-	}
-
-	/**
-	 * Set the provider key.
-	 *
-	 * @param providerKey
-	 *        the provider key to set
-	 */
-	public void setProviderKey(String providerKey) {
-		this.providerKey = providerKey;
 	}
 
 	/**
@@ -105,18 +97,8 @@ public class S3BackupResourceMetadata {
 	 *
 	 * @return the object key
 	 */
-	public String getObjectKey() {
+	public final String getObjectKey() {
 		return objectKey;
-	}
-
-	/**
-	 * Set the object key.
-	 *
-	 * @param objectKey
-	 *        the object key to set
-	 */
-	public void setObjectKey(String objectKey) {
-		this.objectKey = objectKey;
 	}
 
 	/**
@@ -124,18 +106,8 @@ public class S3BackupResourceMetadata {
 	 *
 	 * @return the digest
 	 */
-	public String getDigest() {
+	public final @Nullable String getDigest() {
 		return digest;
-	}
-
-	/**
-	 * Set the digest.
-	 *
-	 * @param digest
-	 *        the digest to set
-	 */
-	public void setDigest(String digest) {
-		this.digest = digest;
 	}
 
 }

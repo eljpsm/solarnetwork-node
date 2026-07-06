@@ -22,8 +22,11 @@
 
 package net.solarnetwork.node.backup.s3;
 
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.common.s3.S3Client;
 import net.solarnetwork.common.s3.S3Object;
 import net.solarnetwork.node.backup.BackupResource;
@@ -51,11 +54,13 @@ public class S3BackupResource implements BackupResource {
 	 *        the S3 client
 	 * @param metadata
 	 *        the metadata
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public S3BackupResource(S3Client client, S3BackupResourceMetadata metadata) {
 		super();
-		this.client = client;
-		this.metadata = metadata;
+		this.client = requireNonNullArgument(client, "client");
+		this.metadata = requireNonNullArgument(metadata, "metadata");
 	}
 
 	@Override
@@ -66,6 +71,9 @@ public class S3BackupResource implements BackupResource {
 	@Override
 	public InputStream getInputStream() throws IOException {
 		S3Object obj = client.getObject(metadata.getObjectKey(), null, null);
+		if ( obj == null ) {
+			throw new FileNotFoundException(metadata.getObjectKey());
+		}
 		return obj.getInputStream();
 	}
 
@@ -80,7 +88,7 @@ public class S3BackupResource implements BackupResource {
 	}
 
 	@Override
-	public String getSha256Digest() {
+	public @Nullable String getSha256Digest() {
 		return metadata.getDigest();
 	}
 
