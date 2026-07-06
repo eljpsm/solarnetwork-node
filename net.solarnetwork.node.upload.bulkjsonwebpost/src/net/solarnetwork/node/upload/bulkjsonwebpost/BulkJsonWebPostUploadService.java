@@ -504,7 +504,7 @@ public class BulkJsonWebPostUploadService extends JsonHttpClientSupport
 	 * </p>
 	 *
 	 * @param url
-	 *        the path; if {@code null} then {@Link #DEFAULT_URL} will be used
+	 *        the path; if {@code null} then {@link #DEFAULT_URL} will be used
 	 */
 	public void setUrl(String url) {
 		this.url = (url != null ? url : DEFAULT_URL);
