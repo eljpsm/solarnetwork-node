@@ -23,6 +23,7 @@
 package net.solarnetwork.node.io.modbus.server.dao.jdbc;
 
 import static java.lang.String.format;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -31,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.ConnectionCallback;
 import net.solarnetwork.dao.BasicFilterResults;
 import net.solarnetwork.dao.FilterResults;
@@ -152,15 +154,15 @@ public class JdbcModbusRegisterDao extends BaseJdbcBatchableDao<ModbusRegisterEn
 
 	@Override
 	public int deleteAll() {
-		return getJdbcTemplate().execute((ConnectionCallback<Integer>) conn -> {
+		return nonnull(jdbcTemplate().execute((ConnectionCallback<Integer>) conn -> {
 			return conn.prepareStatement(getSqlResource(SqlResource.DeleteAll.getResource()))
 					.executeUpdate();
-		});
+		}), "Result");
 	}
 
 	@Override
-	public Instant getMostRecentModificationDate() {
-		return getJdbcTemplate().query(conn -> {
+	public @Nullable Instant getMostRecentModificationDate() {
+		return jdbcTemplate().query(conn -> {
 			PreparedStatement ps = conn.prepareStatement(
 					getSqlResource(SqlResource.GetMostRecentModificationDate.getResource()));
 			ps.setMaxRows(1);
@@ -175,10 +177,11 @@ public class JdbcModbusRegisterDao extends BaseJdbcBatchableDao<ModbusRegisterEn
 
 	@Override
 	public FilterResults<ModbusRegisterEntity, ModbusRegisterKey> findFiltered(
-			ModbusRegisterFilter filter, List<SortDescriptor> sorts, Long offset, Integer max) {
+			ModbusRegisterFilter filter, @Nullable List<SortDescriptor> sorts, @Nullable Long offset,
+			@Nullable Integer max) {
 		Collection<ModbusRegisterEntity> results;
 		if ( filter != null && filter.getServerId() != null ) {
-			results = getJdbcTemplate().query(querySql(SqlResource.FindForServer.getResource(), sorts),
+			results = jdbcTemplate().query(querySql(SqlResource.FindForServer.getResource(), sorts),
 					getRowMapper(), filter.getServerId());
 		} else {
 			results = getAll(sorts);
@@ -194,7 +197,7 @@ public class JdbcModbusRegisterDao extends BaseJdbcBatchableDao<ModbusRegisterEn
 	@Override
 	protected ModbusRegisterEntity getBatchRowEntity(BatchOptions options, ResultSet resultSet,
 			int rowCount) throws SQLException {
-		return getRowMapper().mapRow(resultSet, rowCount);
+		return nonnull(nonnull(getRowMapper(), "RowMapper").mapRow(resultSet, rowCount), "Result");
 	}
 
 	@Override
@@ -227,7 +230,7 @@ public class JdbcModbusRegisterDao extends BaseJdbcBatchableDao<ModbusRegisterEn
 		} catch ( Exception e ) {
 			log.warn("Error finding Modbus Server register row count.", e);
 		}
-		return getMessageSource().getMessage("status.msg",
+		return messageSource().getMessage("status.msg",
 				new Object[] {
 						rowCount,
 						stats.get(ModbusServerDaoStat.EntitiesUpdated),
@@ -237,7 +240,7 @@ public class JdbcModbusRegisterDao extends BaseJdbcBatchableDao<ModbusRegisterEn
 	}
 
 	private long rowCount() {
-		final Number rowCountNum = getJdbcTemplate()
+		final Number rowCountNum = jdbcTemplate()
 				.queryForObject(getSqlResource(SqlResource.Count.getResource()), Number.class);
 		return (rowCountNum == null ? 0 : rowCountNum.longValue());
 	}
