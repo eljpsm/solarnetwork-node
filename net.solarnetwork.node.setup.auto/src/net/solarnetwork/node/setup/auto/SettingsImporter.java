@@ -1,27 +1,29 @@
 /* ==================================================================
  * SettingsImporter.java - Feb 19, 2015 2:38:16 PM
- * 
+ *
  * Copyright 2007-2015 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
 
 package net.solarnetwork.node.setup.auto;
 
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.Charset;
@@ -30,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import net.solarnetwork.node.backup.BackupResource;
 import net.solarnetwork.node.backup.BackupResourceInfo;
@@ -42,19 +45,19 @@ import net.solarnetwork.node.settings.SettingsService;
 
 /**
  * Look for a settings export to automatically load then the application starts.
- * 
+ *
  * The {@link SettingsService#importSettingsCSV(java.io.Reader)} method is used
  * to import a previously-exported settings CSV resource.
- * 
+ *
  * @author matt
  * @version 1.3
  */
 public class SettingsImporter extends FileBackupResourceProvider {
 
 	private Path settingsResource = Paths.get("conf/auto-settings.csv");
-	private Path settingsResourceDir = Paths.get("conf", "auto-settings.d");
-	private SettingsService settingsService;
-	private Executor executor;
+	private @Nullable Path settingsResourceDir = Paths.get("conf", "auto-settings.d");
+	private @Nullable SettingsService settingsService;
+	private @Nullable Executor executor;
 
 	public SettingsImporter() {
 		super();
@@ -128,65 +131,67 @@ public class SettingsImporter extends FileBackupResourceProvider {
 	}
 
 	@Override
-	public BackupResourceProviderInfo providerInfo(Locale locale) {
+	public BackupResourceProviderInfo providerInfo(@Nullable Locale locale) {
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
+		final MessageSource ms = getMessageSource();
 		String name = "Auto Settings Provider";
 		String desc = "Backs up the Auto Settings data.";
-		MessageSource ms = getMessageSource();
 		if ( ms != null ) {
-			name = ms.getMessage("title", null, name, locale);
-			desc = ms.getMessage("desc", null, desc, locale);
+			name = nonnull(ms.getMessage("title", null, name, loc), "Name");
+			desc = nonnull(ms.getMessage("desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceProviderInfo(getKey(), name, desc);
 	}
 
 	@Override
-	public BackupResourceInfo resourceInfo(BackupResource resource, Locale locale) {
+	public BackupResourceInfo resourceInfo(BackupResource resource, @Nullable Locale locale) {
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
+		final MessageSource ms = getMessageSource();
 		String desc = "Auto Settings";
-		MessageSource ms = getMessageSource();
 		if ( ms != null ) {
-			desc = ms.getMessage("auto-settings.desc", null, desc, locale);
+			desc = nonnull(ms.getMessage("auto-settings.desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceInfo(resource.getProviderKey(), resource.getBackupPath(), desc);
 	}
 
 	/**
 	 * Set the settings service to use.
-	 * 
+	 *
 	 * @param settingsService
 	 *        the settings service
 	 */
-	public void setSettingsService(SettingsService settingsService) {
+	public void setSettingsService(@Nullable SettingsService settingsService) {
 		this.settingsService = settingsService;
 	}
 
 	/**
 	 * Set the settings resource to load.
-	 * 
+	 *
 	 * @param settingsResource
 	 *        the settings resource
 	 */
 	public void setSettingsResource(Path settingsResource) {
-		this.settingsResource = settingsResource;
+		this.settingsResource = requireNonNullArgument(settingsResource, "settingsResource");
 	}
 
 	/**
 	 * Set the settings resource directory to load settings files from.
-	 * 
+	 *
 	 * @param settingsResourceDir
 	 *        the path to a directory of {@literal *.csv} files to load
 	 * @since 1.2
 	 */
-	public void setSettingsResourceDir(Path settingsResourceDir) {
+	public void setSettingsResourceDir(@Nullable Path settingsResourceDir) {
 		this.settingsResourceDir = settingsResourceDir;
 	}
 
 	/**
 	 * Set an executor to pass the loading of resources to.
-	 * 
+	 *
 	 * @param executor
 	 *        an executor
 	 */
-	public void setExecutor(Executor executor) {
+	public void setExecutor(@Nullable Executor executor) {
 		this.executor = executor;
 	}
 
