@@ -97,6 +97,7 @@ public class PKITestUtils {
 		return new BigInteger(Long.valueOf(serialCounter.incrementAndGet()).toString());
 	}
 
+	@SuppressWarnings("deprecation")
 	public static X509Certificate generateNewCACert(PublicKey publicKey, String subject,
 			X509Certificate issuer, PrivateKey issuerKey, String caDN) throws Exception {
 		final X500Name issuerDn = (issuer == null ? new X500Name(subject)
