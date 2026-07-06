@@ -34,6 +34,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,17 +139,17 @@ public class CmdlineSystemService
 	 */
 	public static final String RESET_SERVICE_NAME = "/system/reset";
 
-	private String exitCommand = DEFAULT_EXIT_COMMAND;
-	private String rebootCommand = DEFAULT_REBOOT_COMMAND;
-	private String resetCommand = DEFAULT_RESET_COMMAND;
-	private String resetAppCommand = DEFAULT_RESET_APP_COMMAND;
+	private @Nullable String exitCommand = DEFAULT_EXIT_COMMAND;
+	private @Nullable String rebootCommand = DEFAULT_REBOOT_COMMAND;
+	private @Nullable String resetCommand = DEFAULT_RESET_COMMAND;
+	private @Nullable String resetAppCommand = DEFAULT_RESET_APP_COMMAND;
 	private Set<Integer> successExitCodes = DEFAULT_SUCCESS_EXIT_CODES;
-	private String hostCtlCommand = DEFAULT_HOSTCTL_COMMAND;
+	private @Nullable String hostCtlCommand = DEFAULT_HOSTCTL_COMMAND;
 
-	private final BundleContext bundleContext;
-	private MessageSource messageSource;
+	private final @Nullable BundleContext bundleContext;
+	private @Nullable MessageSource messageSource;
 
-	private Thread shutdownThread;
+	private @Nullable Thread shutdownThread;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -169,7 +170,7 @@ public class CmdlineSystemService
 	 * @param bundleContext
 	 *        the bundle context
 	 */
-	public CmdlineSystemService(BundleContext bundleContext) {
+	public CmdlineSystemService(@Nullable BundleContext bundleContext) {
 		super();
 		this.bundleContext = bundleContext;
 	}
@@ -202,7 +203,11 @@ public class CmdlineSystemService
 					@Override
 					public void run() {
 						try {
-							shutdownThread.join(8000);
+							final Thread t = shutdownThread;
+							if ( t == null ) {
+								return;
+							}
+							t.join(8000);
 							final long end = (System.currentTimeMillis() - start);
 							if ( end < 900 ) {
 								Thread.sleep(2000);
@@ -211,8 +216,10 @@ public class CmdlineSystemService
 							// ignore
 						} finally {
 							if ( syncState ) {
-								System.err.println("Exiting via command: " + exitCommand);
-								handleOSCommand(exitCommand);
+								if ( exitCommand != null ) {
+									System.err.println("Exiting via command: " + exitCommand);
+									handleOSCommand(exitCommand);
+								}
 							} else {
 								System.err.println("Exiting from shutdown request.");
 								System.exit(0);
@@ -324,7 +331,7 @@ public class CmdlineSystemService
 		handleOSCommand(Arrays.asList(getHostCtlCommand(), "remove", alias));
 	}
 
-	private void handleOSCommand(String command) {
+	private void handleOSCommand(@Nullable String command) {
 		if ( command == null ) {
 			return;
 		}
@@ -354,7 +361,7 @@ public class CmdlineSystemService
 
 	private boolean isExitValueSuccess(Process pr) {
 		int status = pr.exitValue();
-		return (status == 0 || (successExitCodes != null && successExitCodes.contains(status)));
+		return (status == 0 || successExitCodes.contains(status));
 	}
 
 	private List<String> executeOSCommand(List<String> arguments) {
@@ -437,15 +444,15 @@ public class CmdlineSystemService
 	// FeedbackInstructionHandler
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return (TOPIC_REBOOT.equals(topic) || TOPIC_RESTART.equals(topic)
 				|| TOPIC_SYSTEM_CONFIGURE.equals(topic));
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
-		final String topic = (instruction != null ? instruction.getTopic() : null);
-		if ( !handlesTopic(topic) ) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
+		final String topic = instruction.getTopic();
+		if ( topic == null || !handlesTopic(topic) ) {
 			return null;
 		}
 		if ( TOPIC_REBOOT.equals(topic) || (TOPIC_SYSTEM_CONFIGURE.equals(topic) && REBOOT_SERVICE_NAME
@@ -490,7 +497,7 @@ public class CmdlineSystemService
 	}
 
 	@Override
-	public MessageSource getMessageSource() {
+	public @Nullable MessageSource getMessageSource() {
 		return messageSource;
 	}
 
@@ -500,7 +507,7 @@ public class CmdlineSystemService
 	 * @param messageSource
 	 *        The message source to use.
 	 */
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 
@@ -512,7 +519,7 @@ public class CmdlineSystemService
 	 *        The command and arguments to use when {@link #exit(boolean)} is
 	 *        called with a {@code true} argument.
 	 */
-	public void setExitCommand(String exitCommand) {
+	public void setExitCommand(@Nullable String exitCommand) {
 		this.exitCommand = exitCommand;
 	}
 
@@ -524,7 +531,7 @@ public class CmdlineSystemService
 	 * @param rebootCommand
 	 *        The command and arguments to use when {@link #reboot()} is called.
 	 */
-	public void setRebootCommand(String rebootCommand) {
+	public void setRebootCommand(@Nullable String rebootCommand) {
 		this.rebootCommand = rebootCommand;
 	}
 
@@ -535,7 +542,7 @@ public class CmdlineSystemService
 	 *        the command to set
 	 * @since 1.2
 	 */
-	public void setResetCommand(String resetCommand) {
+	public void setResetCommand(@Nullable String resetCommand) {
 		this.resetCommand = resetCommand;
 	}
 
@@ -546,7 +553,7 @@ public class CmdlineSystemService
 	 *        the command to set
 	 * @since 1.2
 	 */
-	public void setResetAppCommand(String resetAppCommand) {
+	public void setResetAppCommand(@Nullable String resetAppCommand) {
 		this.resetAppCommand = resetAppCommand;
 	}
 
@@ -566,11 +573,14 @@ public class CmdlineSystemService
 	 * {@literal 0}).
 	 *
 	 * @param successExitCodes
-	 *        the exit codes to set
+	 *        the exit codes to set; if {@code null} or empty then
+	 *        {@link #DEFAULT_SUCCESS_EXIT_CODES} will be used
 	 * @since 2.1
 	 */
-	public void setSuccessExitCodes(Set<Integer> successExitCodes) {
-		this.successExitCodes = successExitCodes;
+	public void setSuccessExitCodes(@Nullable Set<Integer> successExitCodes) {
+		this.successExitCodes = (successExitCodes == null || successExitCodes.isEmpty()
+				? DEFAULT_SUCCESS_EXIT_CODES
+				: successExitCodes);
 	}
 
 	/**
@@ -581,7 +591,7 @@ public class CmdlineSystemService
 	 * @see #getSuccessExitCodes()
 	 * @since 2.1
 	 */
-	public String getSuccessExitCodesValue() {
+	public @Nullable String getSuccessExitCodesValue() {
 		return StringUtils.commaDelimitedStringFromCollection(getSuccessExitCodes());
 	}
 
@@ -593,10 +603,10 @@ public class CmdlineSystemService
 	 *        the comma-delimited exit codes list to set
 	 * @since 2.1
 	 */
-	public void setSuccessExitCodesValue(String value) {
+	public void setSuccessExitCodesValue(@Nullable String value) {
 		Set<String> set = StringUtils.commaDelimitedStringToSet(value);
 		Set<Integer> codes = (set != null ? new LinkedHashSet<>(set.size()) : null);
-		if ( set != null ) {
+		if ( set != null && codes != null ) {
 			for ( String code : set ) {
 				try {
 					codes.add(Integer.valueOf(code));
@@ -605,7 +615,7 @@ public class CmdlineSystemService
 				}
 			}
 		}
-		setSuccessExitCodes(codes.isEmpty() ? null : codes);
+		setSuccessExitCodes(codes != null && codes.isEmpty() ? null : codes);
 	}
 
 	/**
@@ -614,7 +624,7 @@ public class CmdlineSystemService
 	 * @return the command
 	 * @since 2.2
 	 */
-	public String getHostCtlCommand() {
+	public @Nullable String getHostCtlCommand() {
 		return hostCtlCommand;
 	}
 
@@ -625,7 +635,7 @@ public class CmdlineSystemService
 	 *        the command to set
 	 * @since 2.2
 	 */
-	public void setHostCtlCommand(String hostCtlCommand) {
+	public void setHostCtlCommand(@Nullable String hostCtlCommand) {
 		this.hostCtlCommand = hostCtlCommand;
 	}
 
