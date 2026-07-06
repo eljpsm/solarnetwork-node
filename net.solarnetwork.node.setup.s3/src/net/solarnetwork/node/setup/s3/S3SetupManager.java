@@ -24,6 +24,7 @@ package net.solarnetwork.node.setup.s3;
 
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import static org.springframework.util.StringUtils.getFilenameExtension;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -37,7 +38,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,6 +54,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -86,6 +87,7 @@ import net.solarnetwork.service.OptionalService;
 import net.solarnetwork.service.OptionalServiceCollection;
 import net.solarnetwork.service.ProgressListener;
 import net.solarnetwork.service.RemoteServiceException;
+import net.solarnetwork.util.ObjectUtils;
 import net.solarnetwork.util.StringUtils;
 
 /**
@@ -135,13 +137,6 @@ public class S3SetupManager implements InstructionHandler {
 	private static final Pattern LEADING_ZEROS_PAT = Pattern.compile("^0+");
 
 	/**
-	 * Constructor.
-	 */
-	public S3SetupManager() {
-		super();
-	}
-
-	/**
 	 * Get the default destination path.
 	 *
 	 * <p>
@@ -160,22 +155,29 @@ public class S3SetupManager implements InstructionHandler {
 		return home;
 	}
 
-	private S3Client s3Client;
-	private String objectKeyPrefix = DEFAULT_OBJECT_KEY_PREFIX;
-	private SettingDao settingDao;
-	private String maxVersion = null;
+	private @Nullable S3Client s3Client;
+	private @Nullable String objectKeyPrefix = DEFAULT_OBJECT_KEY_PREFIX;
+	private @Nullable SettingDao settingDao;
+	private @Nullable String maxVersion;
 	private boolean performFirstTimeUpdate = true;
 	private String workDirectory = DEFAULT_WORK_DIRECTORY;
 	private String destinationPath = defaultDestinationPath();
-	private OptionalService<NodeMetadataService> nodeMetadataService;
-	private OptionalService<PlatformService> platformService;
-	private OptionalService<SystemService> systemService;
-	private TaskExecutor taskExecutor;
-	private MessageSource messageSource;
-	private OptionalServiceCollection<PlatformPackageService> packageServices;
+	private @Nullable OptionalService<NodeMetadataService> nodeMetadataService;
+	private @Nullable OptionalService<PlatformService> platformService;
+	private @Nullable OptionalService<SystemService> systemService;
+	private @Nullable TaskExecutor taskExecutor;
+	private @Nullable MessageSource messageSource;
+	private @Nullable OptionalServiceCollection<PlatformPackageService> packageServices;
 	private long packageActionTimeoutSecs = DEFAULT_PACKAGE_ACTION_TIMEOUT_SECS;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
+
+	/**
+	 * Constructor.
+	 */
+	public S3SetupManager() {
+		super();
+	}
 
 	/**
 	 * Call after all properties are configured on the class.
@@ -199,12 +201,12 @@ public class S3SetupManager implements InstructionHandler {
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return TOPIC_UPDATE_PLATFORM.equals(topic);
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
 		if ( instruction == null || !TOPIC_UPDATE_PLATFORM.equals(instruction.getTopic()) ) {
 			return null;
 		}
@@ -230,13 +232,16 @@ public class S3SetupManager implements InstructionHandler {
 			return InstructionUtils.createStatus(instruction, InstructionState.Completed);
 		} catch ( RemoteServiceException e ) {
 			log.warn("Error accessing S3: {}", e.getMessage());
-			return statusWithError(instruction, "S3SM001", e.getMessage());
+			return statusWithError(instruction, "S3SM001",
+					e.getMessage() != null ? e.getMessage() : e.toString());
 		} catch ( IOException e ) {
 			log.warn("Communication error applying S3 setup: {}", e.getMessage());
-			return statusWithError(instruction, "S3SM002", e.getMessage());
+			return statusWithError(instruction, "S3SM002",
+					e.getMessage() != null ? e.getMessage() : e.toString());
 		} catch ( RuntimeException e ) {
 			log.error("Error applying S3 setup: {}", e.getMessage(), e.getCause());
-			return statusWithError(instruction, "S3SM003", e.getMessage());
+			return statusWithError(instruction, "S3SM003",
+					e.getMessage() != null ? e.getMessage() : e.toString());
 		}
 	}
 
@@ -251,9 +256,10 @@ public class S3SetupManager implements InstructionHandler {
 		return (s3Client != null && s3Client.isConfigured());
 	}
 
-	private synchronized S3SetupTaskResult applySetup(S3SetupConfiguration config) throws IOException {
+	private synchronized S3SetupTaskResult applySetup(@Nullable S3SetupConfiguration config)
+			throws IOException {
 		if ( config == null ) {
-			return new S3SetupTaskResult(false, Collections.emptySet(), Collections.emptySet());
+			return new S3SetupTaskResult(false, Set.of(), Set.of());
 		}
 		S3SetupManagerPlatformTask task = new S3SetupManagerPlatformTask(config);
 		PlatformService pService = (platformService != null ? platformService.service() : null);
@@ -315,7 +321,7 @@ public class S3SetupManager implements InstructionHandler {
 
 		private final String taskId;
 		private final AtomicReference<S3SetupManagerPlatformTaskState> state;
-		private final AtomicReference<String> assetName;
+		private final AtomicReference<@Nullable String> assetName;
 		private final List<PlatformTaskStatusHandler> statusHandlers = new ArrayList<>(2);
 		private final int stepCount;
 		private final S3SetupConfiguration config;
@@ -331,9 +337,8 @@ public class S3SetupManager implements InstructionHandler {
 			// add +2 if any packages defined, to perform refresh/clean steps before/after
 			this.stepCount = config.getTotalStepCount() + 1
 					+ (config.getPackages() != null && config.getPackages().length > 0 ? 2 : 0);
-			state = new AtomicReference<S3SetupManagerPlatformTaskState>(
-					S3SetupManagerPlatformTaskState.Idle);
-			assetName = new AtomicReference<String>(null);
+			state = new AtomicReference<>(S3SetupManagerPlatformTaskState.Idle);
+			assetName = new AtomicReference<>(null);
 			step = 0;
 			complete = false;
 			extractPercentComplete = 0;
@@ -419,13 +424,16 @@ public class S3SetupManager implements InstructionHandler {
 		}
 
 		@Override
-		public String getTitle(Locale locale) {
-			MessageSource ms = messageSource;
+		public String getTitle(@Nullable Locale locale) {
+			final String title = "S3 platform %s update in progress".formatted(getConfigVersion());
+			final MessageSource ms = messageSource;
 			if ( ms == null ) {
-				return null;
+				return title;
 			}
-			return messageSource.getMessage("platformTask.title", new Object[] { getConfigVersion() },
-					locale);
+			final Locale loc = (locale != null ? locale : Locale.getDefault());
+			return nonnull(
+					ms.getMessage("platformTask.title", new Object[] { getConfigVersion() }, title, loc),
+					"Title");
 		}
 
 		private String getConfigVersion() {
@@ -434,21 +442,22 @@ public class S3SetupManager implements InstructionHandler {
 		}
 
 		@Override
-		public String getMessage(Locale locale) {
-			MessageSource ms = messageSource;
+		public String getMessage(@Nullable Locale locale) {
+			final MessageSource ms = messageSource;
 			if ( ms == null ) {
-				return null;
+				return "Working...";
 			}
+			final Locale loc = (locale != null ? locale : Locale.getDefault());
 			S3SetupManagerPlatformTaskState s = state.get();
 			String asset = assetName.get();
 			switch (s) {
 				case PostingSetupVersion:
-					return ms.getMessage("platformTask.message.PostingSetupVersion",
-							new Object[] { getConfigVersion() }, locale);
+					return nonnull(ms.getMessage("platformTask.message.PostingSetupVersion",
+							new Object[] { getConfigVersion() }, loc), "Message");
 
 				default:
-					return ms.getMessage("platformTask.message." + s.toString(), new Object[] { asset },
-							locale);
+					return nonnull(ms.getMessage("platformTask.message." + s.toString(),
+							new Object[] { asset }, loc), "Message");
 			}
 		}
 
@@ -457,13 +466,14 @@ public class S3SetupManager implements InstructionHandler {
 			return (double) step / (double) stepCount + (extractPercentComplete / stepCount);
 		}
 
-		private void setState(S3SetupManagerPlatformTaskState taskState, String asset) {
+		private void setState(S3SetupManagerPlatformTaskState taskState, @Nullable String asset) {
 			state.set(taskState);
 			assetName.set(asset);
 			informStatusHandlers();
 		}
 
-		private void setStateAndIncrementStep(S3SetupManagerPlatformTaskState taskState, String asset) {
+		private void setStateAndIncrementStep(S3SetupManagerPlatformTaskState taskState,
+				@Nullable String asset) {
 			state.set(taskState);
 			assetName.set(asset);
 			incrementStep();
@@ -486,9 +496,9 @@ public class S3SetupManager implements InstructionHandler {
 		 */
 		private Set<Path> applySetupObjects(S3SetupConfiguration config) throws IOException {
 			final String[] objects = config.getObjects();
-			final int objCount = (objects != null ? config.getObjects().length : 0);
-			if ( objCount < 1 ) {
-				return Collections.emptySet();
+			final int objCount = (objects != null ? objects.length : 0);
+			if ( objects == null || objCount < 1 ) {
+				return Set.of();
 			}
 			final Path destBasePath = Paths.get(destinationPath);
 			Set<Path> installed = new LinkedHashSet<>();
@@ -507,7 +517,7 @@ public class S3SetupManager implements InstructionHandler {
 				}
 
 				setState(S3SetupManagerPlatformTaskState.DownloadingAsset, dataObjKey);
-				S3Object obj = s3Client.getObject(dataObjKey, null, null);
+				S3Object obj = s3Client().getObject(dataObjKey, null, null);
 				if ( obj == null ) {
 					log.warn("S3 setup resource {} not found, cannot apply setup", dataObjKey);
 					continue;
@@ -593,13 +603,13 @@ public class S3SetupManager implements InstructionHandler {
 		private Set<Path> applySetupPackages(S3SetupConfiguration config) throws IOException {
 			final S3SetupPackageConfiguration[] pkgConfigs = (config != null ? config.getPackages()
 					: null);
-			if ( pkgConfigs == null || pkgConfigs.length < 1 ) {
-				return Collections.emptySet();
+			if ( config == null || pkgConfigs == null || pkgConfigs.length < 1 ) {
+				return Set.of();
 			}
 			final PlatformPackageService pkgService = mainPackageService();
 			if ( pkgService == null ) {
 				log.warn("No PlatformPackageService available to install packages; skipping.");
-				return Collections.emptySet();
+				return Set.of();
 			}
 
 			refreshNamedPackages();
@@ -610,28 +620,36 @@ public class S3SetupManager implements InstructionHandler {
 				extractPercentComplete = 0;
 				try {
 					Future<PlatformPackageService.PlatformPackageResult<Void>> taskFuture = null;
-					switch (pkgConfig.getAction()) {
-						case Install:
-							setState(S3SetupManagerPlatformTaskState.InstallingPackage,
-									pkgConfig.getDescription());
-							log.info("Installing package [{}]", pkgConfig.getDescription());
-							taskFuture = pkgService.installNamedPackage(pkgConfig.getName(),
-									pkgConfig.getVersion(), destBasePath, this, null);
-							break;
+					final S3SetupPackageConfiguration.Action action = pkgConfig.getAction();
+					if ( action != null ) {
+						switch (action) {
+							case Install:
+								if ( pkgConfig.getName() != null ) {
+									setState(S3SetupManagerPlatformTaskState.InstallingPackage,
+											pkgConfig.getDescription());
+									log.info("Installing package [{}]", pkgConfig.getDescription());
+									taskFuture = pkgService.installNamedPackage(pkgConfig.getName(),
+											pkgConfig.getVersion(), destBasePath, this, null);
+								}
+								break;
 
-						case Remove:
-							setState(S3SetupManagerPlatformTaskState.DeletingPackage,
-									pkgConfig.getName());
-							log.info("Removing package [{}]", pkgConfig.getDescription());
-							taskFuture = pkgService.removeNamedPackage(pkgConfig.getName(), this, null);
-							break;
+							case Remove:
+								if ( pkgConfig.getName() != null ) {
+									setState(S3SetupManagerPlatformTaskState.DeletingPackage,
+											pkgConfig.getName());
+									log.info("Removing package [{}]", pkgConfig.getDescription());
+									taskFuture = pkgService.removeNamedPackage(pkgConfig.getName(), this,
+											null);
+								}
+								break;
 
-						case Upgrade:
-							setState(S3SetupManagerPlatformTaskState.UpgradingPackages, "");
-							log.info("Upgrading all packages");
-							taskFuture = pkgService.upgradeNamedPackages(this, null);
-							break;
+							case Upgrade:
+								setState(S3SetupManagerPlatformTaskState.UpgradingPackages, "");
+								log.info("Upgrading all packages");
+								taskFuture = pkgService.upgradeNamedPackages(this, null);
+								break;
 
+						}
 					}
 					if ( taskFuture != null ) {
 						PlatformPackageService.PlatformPackageResult<Void> taskResult = taskFuture
@@ -684,14 +702,14 @@ public class S3SetupManager implements InstructionHandler {
 		}
 
 		@Override
-		public void progressChanged(Void context, double amountComplete) {
+		public void progressChanged(@Nullable Void context, double amountComplete) {
 			extractPercentComplete = amountComplete;
 		}
 
 		private Set<Path> applySetupSyncPaths(S3SetupConfiguration config, Set<Path> installedFiles)
 				throws IOException {
 			if ( config.getSyncPaths() == null || config.getSyncPaths().length < 1 ) {
-				return Collections.emptySet();
+				return Set.of();
 			}
 			Map<String, ?> sysProps = getPathTemplateVariables();
 			Set<Path> deleted = new LinkedHashSet<>();
@@ -727,7 +745,7 @@ public class S3SetupManager implements InstructionHandler {
 		 */
 		private Set<Path> applySetupSyncPath(Path dir, Set<Path> installedFiles) throws IOException {
 			if ( !Files.isDirectory(dir) ) {
-				return Collections.emptySet();
+				return Set.of();
 			}
 			Set<Path> deleted = new LinkedHashSet<>();
 			Files.walk(dir).filter(p -> !Files.isDirectory(p)
@@ -746,14 +764,14 @@ public class S3SetupManager implements InstructionHandler {
 
 		private Set<Path> applySetupCleanPaths(S3SetupConfiguration config) throws IOException {
 			if ( config.getCleanPaths() == null || config.getCleanPaths().length < 1 ) {
-				return Collections.emptySet();
+				return Set.of();
 			}
 
 			Map<String, ?> sysProps = getPathTemplateVariables();
 			Set<Path> deleted = new LinkedHashSet<>();
 			for ( String cleanPath : config.getCleanPaths() ) {
 				setState(S3SetupManagerPlatformTaskState.DeletingAsset, cleanPath);
-				String path = StringUtils.expandTemplateString(cleanPath, sysProps);
+				String path = nonnull(StringUtils.expandTemplateString(cleanPath, sysProps), "Path");
 				if ( path.startsWith("file:") ) {
 					path = path.substring(5);
 				}
@@ -766,7 +784,7 @@ public class S3SetupManager implements InstructionHandler {
 				incrementStep();
 			}
 			if ( !deleted.isEmpty() ) {
-				log.info("Deleted files from cleanPaths {}: {}", Arrays.asList(config.getCleanPaths()),
+				log.info("Deleted files from cleanPaths {}: {}", List.of(config.getCleanPaths()),
 						deleted);
 			}
 			return deleted;
@@ -786,7 +804,11 @@ public class S3SetupManager implements InstructionHandler {
 		}
 
 		log.info("S3 setup version {} installed", config.getVersion());
-		settingDao.storeSetting(SETTING_KEY_VERSION, SetupSettings.SETUP_TYPE_KEY, config.getVersion());
+		final SettingDao settingDao = this.settingDao;
+		if ( settingDao != null ) {
+			settingDao.storeSetting(SETTING_KEY_VERSION, SetupSettings.SETUP_TYPE_KEY,
+					config.getVersion());
+		}
 		publishNodeMetadataForInstalledVersion(config.getVersion());
 	}
 
@@ -808,8 +830,10 @@ public class S3SetupManager implements InstructionHandler {
 			// perhaps delay and try again later?
 			return;
 		}
-		String installedVersion = settingDao.getSetting(SETTING_KEY_VERSION,
-				SetupSettings.SETUP_TYPE_KEY);
+		final SettingDao settingDao = this.settingDao;
+		final String installedVersion = (settingDao != null
+				? settingDao.getSetting(SETTING_KEY_VERSION, SetupSettings.SETUP_TYPE_KEY)
+				: null);
 		if ( installedVersion != null ) {
 			log.info("S3 setup version {} detected, not performing first time update", installedVersion);
 			try {
@@ -858,7 +882,7 @@ public class S3SetupManager implements InstructionHandler {
 	 *         if an IO error occurs
 	 */
 	private S3SetupConfiguration getSetupConfiguration(String objectKey) throws IOException {
-		String metaJson = s3Client.getObjectAsString(objectKey);
+		String metaJson = s3Client().getObjectAsString(objectKey);
 		S3SetupConfiguration config = OBJECT_MAPPER.readValue(metaJson, S3SetupConfiguration.class);
 		config.setObjectKey(objectKey);
 		if ( config.getVersion() == null ) {
@@ -884,9 +908,9 @@ public class S3SetupManager implements InstructionHandler {
 	 * @return the S3 object that holds the setup metadata to update to, or
 	 *         {@literal null} if not available
 	 */
-	private S3ObjectReference getConfigObjectForUpdateToHighestVersion() throws IOException {
+	private @Nullable S3ObjectReference getConfigObjectForUpdateToHighestVersion() throws IOException {
 		final String metaDir = objectKeyForPath(META_OBJECT_KEY_PREFIX);
-		Set<S3ObjectReference> objs = s3Client.listObjects(metaDir);
+		Set<S3ObjectReference> objs = s3Client().listObjects(metaDir);
 		S3ObjectReference versionObj = null;
 		if ( maxVersion == null ) {
 			// take the last (highest version), excluding the meta dir itself
@@ -922,9 +946,9 @@ public class S3SetupManager implements InstructionHandler {
 		return versionObj;
 	}
 
-	private PlatformPackageService packageServiceForArchiveFileName(String archiveFileName) {
+	private @Nullable PlatformPackageService packageServiceForArchiveFileName(String archiveFileName) {
 		Iterable<PlatformPackageService> itr = (packageServices != null ? packageServices.services()
-				: Collections.emptyList());
+				: List.of());
 		for ( PlatformPackageService s : itr ) {
 			if ( s != null && s.handlesPackage(archiveFileName) ) {
 				return s;
@@ -944,9 +968,9 @@ public class S3SetupManager implements InstructionHandler {
 	 *
 	 * @return the "main" package service, or {@literal null} if none available
 	 */
-	private PlatformPackageService mainPackageService() {
+	private @Nullable PlatformPackageService mainPackageService() {
 		Iterable<PlatformPackageService> itr = (packageServices != null ? packageServices.services()
-				: Collections.emptyList());
+				: List.of());
 		for ( PlatformPackageService s : itr ) {
 			if ( s != null ) {
 				return s;
@@ -971,13 +995,17 @@ public class S3SetupManager implements InstructionHandler {
 		return globalPrefix + path;
 	}
 
+	private S3Client s3Client() {
+		return ObjectUtils.nonnull(s3Client, "s3Client");
+	}
+
 	/**
 	 * Set the {@link S3Client} to use for accessing S3.
 	 *
 	 * @param s3Client
 	 *        the client to use
 	 */
-	public void setS3Client(S3Client s3Client) {
+	public void setS3Client(@Nullable S3Client s3Client) {
 		this.s3Client = s3Client;
 	}
 
@@ -987,7 +1015,7 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param maxVersion
 	 *        the max version, or {@literal null} or {@literal 0} for no maximum
 	 */
-	public void setMaxVersion(String maxVersion) {
+	public void setMaxVersion(@Nullable String maxVersion) {
 		this.maxVersion = maxVersion;
 	}
 
@@ -997,7 +1025,7 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param settingDao
 	 *        the DAO to use for settings
 	 */
-	public void setSettingDao(SettingDao settingDao) {
+	public void setSettingDao(@Nullable SettingDao settingDao) {
 		this.settingDao = settingDao;
 	}
 
@@ -1033,8 +1061,8 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param workDirectory
 	 *        the work directory; defaults to {@link #DEFAULT_WORK_DIRECTORY}
 	 */
-	public void setWorkDirectory(String workDirectory) {
-		this.workDirectory = workDirectory;
+	public void setWorkDirectory(@Nullable String workDirectory) {
+		this.workDirectory = (workDirectory != null ? workDirectory : DEFAULT_WORK_DIRECTORY);
 	}
 
 	/**
@@ -1044,8 +1072,8 @@ public class S3SetupManager implements InstructionHandler {
 	 *        the destination path; defaults to
 	 *        {@link #defaultDestinationPath()}
 	 */
-	public void setDestinationPath(String destinationPath) {
-		this.destinationPath = destinationPath;
+	public void setDestinationPath(@Nullable String destinationPath) {
+		this.destinationPath = (destinationPath != null ? destinationPath : defaultDestinationPath());
 	}
 
 	/**
@@ -1054,7 +1082,8 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param nodeMetadataService
 	 *        the metadata service to use
 	 */
-	public void setNodeMetadataService(OptionalService<NodeMetadataService> nodeMetadataService) {
+	public void setNodeMetadataService(
+			@Nullable OptionalService<NodeMetadataService> nodeMetadataService) {
 		this.nodeMetadataService = nodeMetadataService;
 	}
 
@@ -1064,7 +1093,7 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param taskExecutor
 	 *        a task executor
 	 */
-	public void setTaskExecutor(TaskExecutor taskExecutor) {
+	public void setTaskExecutor(@Nullable TaskExecutor taskExecutor) {
 		this.taskExecutor = taskExecutor;
 	}
 
@@ -1075,7 +1104,7 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param systemService
 	 *        the system service
 	 */
-	public void setSystemService(OptionalService<SystemService> systemService) {
+	public void setSystemService(@Nullable OptionalService<SystemService> systemService) {
 		this.systemService = systemService;
 	}
 
@@ -1085,7 +1114,7 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param platformService
 	 *        the service to use
 	 */
-	public void setPlatformService(OptionalService<PlatformService> platformService) {
+	public void setPlatformService(@Nullable OptionalService<PlatformService> platformService) {
 		this.platformService = platformService;
 	}
 
@@ -1095,7 +1124,7 @@ public class S3SetupManager implements InstructionHandler {
 	 * @param messageSource
 	 *        the message source
 	 */
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 
@@ -1107,7 +1136,8 @@ public class S3SetupManager implements InstructionHandler {
 	 *        the services
 	 * @since 1.2
 	 */
-	public void setPackageServices(OptionalServiceCollection<PlatformPackageService> packageServices) {
+	public void setPackageServices(
+			@Nullable OptionalServiceCollection<PlatformPackageService> packageServices) {
 		this.packageServices = packageServices;
 	}
 

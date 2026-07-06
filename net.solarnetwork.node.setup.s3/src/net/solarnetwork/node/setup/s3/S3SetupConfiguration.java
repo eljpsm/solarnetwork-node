@@ -22,6 +22,8 @@
 
 package net.solarnetwork.node.setup.s3;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Metadata about an S3 setup.
  *
@@ -46,13 +48,13 @@ public class S3SetupConfiguration {
 	 */
 	public static final String REFRESH_NAMED_PACKAGES_OBJECT = "_refreshPackages";
 
-	private String version;
-	private String objectKey;
-	private String[] syncPaths;
-	private String[] objects;
-	private String[] cleanPaths;
+	private @Nullable String version;
+	private @Nullable String objectKey;
+	private String @Nullable [] syncPaths;
+	private String @Nullable [] objects;
+	private String @Nullable [] cleanPaths;
 	private boolean restartRequired;
-	private S3SetupPackageConfiguration[] packages;
+	private S3SetupPackageConfiguration @Nullable [] packages;
 
 	/**
 	 * Constructor.
@@ -84,7 +86,7 @@ public class S3SetupConfiguration {
 	 *
 	 * @return the list of patterns
 	 */
-	public String[] getSyncPaths() {
+	public String @Nullable [] getSyncPaths() {
 		return syncPaths;
 	}
 
@@ -94,7 +96,7 @@ public class S3SetupConfiguration {
 	 * @param syncPaths
 	 *        the paths to sync
 	 */
-	public void setSyncPaths(String[] syncPaths) {
+	public void setSyncPaths(String @Nullable [] syncPaths) {
 		this.syncPaths = syncPaths;
 	}
 
@@ -103,7 +105,7 @@ public class S3SetupConfiguration {
 	 *
 	 * @return the object keys
 	 */
-	public String[] getObjects() {
+	public String @Nullable [] getObjects() {
 		return objects;
 	}
 
@@ -113,7 +115,7 @@ public class S3SetupConfiguration {
 	 * @param objects
 	 *        list of S3 object keys
 	 */
-	public void setObjects(String[] objects) {
+	public void setObjects(String @Nullable [] objects) {
 		this.objects = objects;
 	}
 
@@ -122,7 +124,7 @@ public class S3SetupConfiguration {
 	 *
 	 * @return the list of paths to delete
 	 */
-	public String[] getCleanPaths() {
+	public String @Nullable [] getCleanPaths() {
 		return cleanPaths;
 	}
 
@@ -132,7 +134,7 @@ public class S3SetupConfiguration {
 	 * @param cleanPaths
 	 *        list of paths to delete
 	 */
-	public void setCleanPaths(String[] cleanPaths) {
+	public void setCleanPaths(String @Nullable [] cleanPaths) {
 		this.cleanPaths = cleanPaths;
 	}
 
@@ -141,7 +143,7 @@ public class S3SetupConfiguration {
 	 *
 	 * @return the version
 	 */
-	public String getVersion() {
+	public @Nullable String getVersion() {
 		return version;
 	}
 
@@ -156,7 +158,7 @@ public class S3SetupConfiguration {
 	 * @param version
 	 *        the version to set
 	 */
-	public void setVersion(String version) {
+	public void setVersion(@Nullable String version) {
 		this.version = version;
 	}
 
@@ -165,7 +167,7 @@ public class S3SetupConfiguration {
 	 *
 	 * @return the S3 object key for this data
 	 */
-	public String getObjectKey() {
+	public @Nullable String getObjectKey() {
 		return objectKey;
 	}
 
@@ -175,7 +177,7 @@ public class S3SetupConfiguration {
 	 * @param objectKey
 	 *        the S3 object key to use
 	 */
-	public void setObjectKey(String objectKey) {
+	public void setObjectKey(@Nullable String objectKey) {
 		this.objectKey = objectKey;
 	}
 
@@ -206,7 +208,7 @@ public class S3SetupConfiguration {
 	 * @return the list of package configurations
 	 * @since 1.1
 	 */
-	public S3SetupPackageConfiguration[] getPackages() {
+	public S3SetupPackageConfiguration @Nullable [] getPackages() {
 		return packages;
 	}
 
@@ -217,7 +219,7 @@ public class S3SetupConfiguration {
 	 *        the list of package configurations
 	 * @since 1.1
 	 */
-	public void setPackages(S3SetupPackageConfiguration[] packages) {
+	public void setPackages(S3SetupPackageConfiguration @Nullable [] packages) {
 		this.packages = packages;
 	}
 

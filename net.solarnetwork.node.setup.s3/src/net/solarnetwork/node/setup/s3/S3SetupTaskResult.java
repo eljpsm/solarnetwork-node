@@ -24,6 +24,7 @@ package net.solarnetwork.node.setup.s3;
 
 import java.nio.file.Path;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Result object for the S3 setup task.
@@ -34,8 +35,8 @@ import java.util.Set;
 public class S3SetupTaskResult {
 
 	private final boolean success;
-	private final Set<Path> installedFiles;
-	private final Set<Path> deletedFiles;
+	private final @Nullable Set<Path> installedFiles;
+	private final @Nullable Set<Path> deletedFiles;
 
 	/**
 	 * Constructor.
@@ -47,7 +48,8 @@ public class S3SetupTaskResult {
 	 * @param deletedFiles
 	 *        a list of deleted files
 	 */
-	public S3SetupTaskResult(boolean success, Set<Path> installedFiles, Set<Path> deletedFiles) {
+	public S3SetupTaskResult(boolean success, @Nullable Set<Path> installedFiles,
+			@Nullable Set<Path> deletedFiles) {
 		super();
 		this.success = success;
 		this.installedFiles = installedFiles;
@@ -68,7 +70,7 @@ public class S3SetupTaskResult {
 	 *
 	 * @return the installed files
 	 */
-	public Set<Path> getInstalledFiles() {
+	public @Nullable Set<Path> getInstalledFiles() {
 		return installedFiles;
 	}
 
@@ -77,7 +79,7 @@ public class S3SetupTaskResult {
 	 *
 	 * @return the deleted files
 	 */
-	public Set<Path> getDeletedFiles() {
+	public @Nullable Set<Path> getDeletedFiles() {
 		return deletedFiles;
 	}
 

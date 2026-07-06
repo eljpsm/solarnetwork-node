@@ -22,6 +22,8 @@
 
 package net.solarnetwork.node.setup.s3;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Configuration for a single setup package.
  *
@@ -47,10 +49,10 @@ public class S3SetupPackageConfiguration {
 
 	}
 
-	private Action action;
-	private String name;
-	private String version;
-	private String[] arguments;
+	private @Nullable Action action;
+	private @Nullable String name;
+	private @Nullable String version;
+	private String @Nullable [] arguments;
 
 	/**
 	 * Constructor.
@@ -64,7 +66,7 @@ public class S3SetupPackageConfiguration {
 	 *
 	 * @return the description
 	 */
-	public String getDescription() {
+	public @Nullable String getDescription() {
 		if ( version != null ) {
 			return name + " " + version;
 		}
@@ -76,7 +78,7 @@ public class S3SetupPackageConfiguration {
 	 *
 	 * @return the action
 	 */
-	public Action getAction() {
+	public @Nullable Action getAction() {
 		return action;
 	}
 
@@ -86,7 +88,7 @@ public class S3SetupPackageConfiguration {
 	 * @param action
 	 *        the action to set
 	 */
-	public void setAction(Action action) {
+	public void setAction(@Nullable Action action) {
 		this.action = action;
 	}
 
@@ -95,7 +97,7 @@ public class S3SetupPackageConfiguration {
 	 *
 	 * @return the name
 	 */
-	public String getName() {
+	public @Nullable String getName() {
 		return name;
 	}
 
@@ -105,7 +107,7 @@ public class S3SetupPackageConfiguration {
 	 * @param name
 	 *        the name to set
 	 */
-	public void setName(String name) {
+	public void setName(@Nullable String name) {
 		this.name = name;
 	}
 
@@ -114,7 +116,7 @@ public class S3SetupPackageConfiguration {
 	 *
 	 * @return the version
 	 */
-	public String getVersion() {
+	public @Nullable String getVersion() {
 		return version;
 	}
 
@@ -124,7 +126,7 @@ public class S3SetupPackageConfiguration {
 	 * @param version
 	 *        the version to set
 	 */
-	public void setVersion(String version) {
+	public void setVersion(@Nullable String version) {
 		this.version = version;
 	}
 
@@ -133,7 +135,7 @@ public class S3SetupPackageConfiguration {
 	 *
 	 * @return the arguments
 	 */
-	public String[] getArguments() {
+	public String @Nullable [] getArguments() {
 		return arguments;
 	}
 
@@ -143,7 +145,7 @@ public class S3SetupPackageConfiguration {
 	 * @param arguments
 	 *        the arguments to set
 	 */
-	public void setArguments(String[] arguments) {
+	public void setArguments(String @Nullable [] arguments) {
 		this.arguments = arguments;
 	}
 
