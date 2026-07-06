@@ -1,21 +1,21 @@
 /* ==================================================================
  * InstructionCleanerJob.java - Oct 3, 2011 4:21:34 PM
- * 
+ *
  * Copyright 2007-2011 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -32,7 +32,7 @@ import net.solarnetwork.settings.SettingSpecifier;
 
 /**
  * Job to clean out old instructions so they don't build up.
- * 
+ *
  * @author matt
  * @version 2.0
  */
@@ -44,6 +44,14 @@ public class InstructionCleanerJob extends BaseIdentifiable implements JobServic
 	private final InstructionDao instructionDao;
 	private int hours = DEFAULT_HOURS;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param instructionDao
+	 *        the instruction DAO
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
+	 */
 	public InstructionCleanerJob(InstructionDao instructionDao) {
 		super();
 		this.instructionDao = requireNonNullArgument(instructionDao, "instructionDao");
@@ -69,7 +77,7 @@ public class InstructionCleanerJob extends BaseIdentifiable implements JobServic
 
 	/**
 	 * Get the minimum age of handled instructions to delete, in hours.
-	 * 
+	 *
 	 * @return the hours
 	 */
 	public int getHours() {
@@ -78,7 +86,7 @@ public class InstructionCleanerJob extends BaseIdentifiable implements JobServic
 
 	/**
 	 * Set the minimum age of handled instructions to delete, in hours.
-	 * 
+	 *
 	 * @param hours
 	 *        the hours
 	 */
