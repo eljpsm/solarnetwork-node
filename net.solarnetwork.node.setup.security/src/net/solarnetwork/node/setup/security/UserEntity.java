@@ -1,21 +1,21 @@
 /* ==================================================================
  * UserEntity.java - 6/03/2023 12:31:58 pm
- * 
+ *
  * Copyright 2023 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -26,12 +26,13 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * A basic user entity.
- * 
+ *
  * @author matt
  * @version 1.0
  * @since 2.1
@@ -40,13 +41,13 @@ public final class UserEntity {
 
 	private final long created;
 	private final long modified;
-	private final String username;
-	private final String password;
+	private final @Nullable String username;
+	private final @Nullable String password;
 	private final Set<String> roles;
 
 	/**
 	 * Constructor.
-	 * 
+	 *
 	 * @param created
 	 *        the creation date
 	 * @param modified
@@ -60,8 +61,9 @@ public final class UserEntity {
 	 */
 	@JsonCreator
 	public UserEntity(@JsonProperty("created") long created, @JsonProperty("modified") long modified,
-			@JsonProperty("username") String username, @JsonProperty("password") String password,
-			@JsonProperty("roles") Set<String> roles) {
+			@JsonProperty("username") @Nullable String username,
+			@JsonProperty("password") @Nullable String password,
+			@JsonProperty("roles") @Nullable Set<String> roles) {
 		super();
 		this.created = created;
 		this.modified = modified;
@@ -114,7 +116,7 @@ public final class UserEntity {
 
 	/**
 	 * Create a copy with a new username.
-	 * 
+	 *
 	 * @param username
 	 *        the username to assign
 	 * @return the new instance
@@ -125,7 +127,7 @@ public final class UserEntity {
 
 	/**
 	 * Create a copy with a new password.
-	 * 
+	 *
 	 * @param password
 	 *        the password to assign
 	 * @return the new instance
@@ -136,7 +138,7 @@ public final class UserEntity {
 
 	/**
 	 * Get the creation date.
-	 * 
+	 *
 	 * @return the created date, as a millisecond epoch
 	 */
 	public long getCreated() {
@@ -145,7 +147,7 @@ public final class UserEntity {
 
 	/**
 	 * Get the last modification date.
-	 * 
+	 *
 	 * @return the modified date, as a millisecond epoch
 	 */
 	public long getModified() {
@@ -154,25 +156,25 @@ public final class UserEntity {
 
 	/**
 	 * Get the username.
-	 * 
+	 *
 	 * @return the username
 	 */
-	public String getUsername() {
+	public @Nullable String getUsername() {
 		return username;
 	}
 
 	/**
 	 * Get the password.
-	 * 
+	 *
 	 * @return the password
 	 */
-	public String getPassword() {
+	public @Nullable String getPassword() {
 		return password;
 	}
 
 	/**
 	 * Get the roles.
-	 * 
+	 *
 	 * @return the roles
 	 */
 	public Set<String> getRoles() {

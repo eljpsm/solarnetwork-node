@@ -22,6 +22,8 @@
 
 package net.solarnetwork.node.setup.security;
 
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -112,7 +115,7 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 	private final PasswordEncoder passwordEncoder;
 	private final ObjectMapper objectMapper;
 	private String usersFilePath = DEFAULT_USERS_FILE_PATH;
-	private MessageSource messageSource;
+	private @Nullable MessageSource messageSource;
 
 	/**
 	 * Constructor.
@@ -123,13 +126,15 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 	 *        The {@link IdentityService} to use.
 	 * @param passwordEncoder
 	 *        The {@link PasswordEncoder} to use for legacy user support.
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public SettingsUserService(SettingDao settingDao, IdentityService identityService,
 			PasswordEncoder passwordEncoder) {
 		super();
-		this.settingDao = settingDao;
-		this.identityService = identityService;
-		this.passwordEncoder = passwordEncoder;
+		this.settingDao = requireNonNullArgument(settingDao, "settingDao");
+		this.identityService = requireNonNullArgument(identityService, "identityService");
+		this.passwordEncoder = requireNonNullArgument(passwordEncoder, "passwordEncoder");
 		this.objectMapper = JsonUtils.newObjectMapper();
 	}
 
@@ -212,7 +217,7 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 		Path usersFile = Paths.get(usersFilePath);
 		try {
 			Path usersFileDir = usersFile.getParent();
-			if ( !Files.isDirectory(usersFileDir) ) {
+			if ( usersFileDir != null && !Files.isDirectory(usersFileDir) ) {
 				Files.createDirectories(usersFileDir);
 			}
 			if ( users == null || users.isEmpty() ) {
@@ -444,8 +449,8 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 	}
 
 	@Override
-	public UserAuthenticationInfo authenticationInfo(String username) {
-		UserDetails user = null;
+	public @Nullable UserAuthenticationInfo authenticationInfo(String username) {
+		final UserDetails user;
 		try {
 			user = loadUserByUsername(username);
 		} catch ( AuthenticationException e ) {
@@ -454,15 +459,18 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 		if ( user == null ) {
 			return null;
 		}
-		String pw = user.getPassword();
-		Map<String, Object> params = new LinkedHashMap<String, Object>(2);
-		String alg = hashAlgorithmFromPassword(pw, params);
+		final String pw = user.getPassword();
+		final Map<String, Object> params = new LinkedHashMap<>(2);
+		final String alg = hashAlgorithmFromPassword(pw, params);
+		if ( alg == null ) {
+			return null;
+		}
 		return new UserAuthenticationInfo(alg, params);
 	}
 
 	private static final Pattern BCRYPT_PAT = Pattern.compile("(\\$2[abxy]\\$\\d{2}\\$.{22}).+");
 
-	private String hashAlgorithmFromPassword(String pw, Map<String, Object> params) {
+	private @Nullable String hashAlgorithmFromPassword(String pw, Map<String, Object> params) {
 		Matcher m = BCRYPT_PAT.matcher(pw);
 		if ( m.matches() ) {
 			params.put("salt", m.group(1));
@@ -529,23 +537,25 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 	}
 
 	@Override
-	public BackupResourceProviderInfo providerInfo(Locale locale) {
+	public BackupResourceProviderInfo providerInfo(@Nullable Locale locale) {
+		final MessageSource ms = messageSource;
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
 		String name = "User Database Provider";
 		String desc = "Backs up the SolarNode user database.";
-		MessageSource ms = messageSource;
 		if ( ms != null ) {
-			name = ms.getMessage("title", null, name, locale);
-			desc = ms.getMessage("desc", null, desc, locale);
+			name = nonnull(ms.getMessage("title", null, name, loc), "Name");
+			desc = nonnull(ms.getMessage("desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceProviderInfo(getKey(), name, desc);
 	}
 
 	@Override
-	public BackupResourceInfo resourceInfo(BackupResource resource, Locale locale) {
+	public BackupResourceInfo resourceInfo(BackupResource resource, @Nullable Locale locale) {
+		final MessageSource ms = messageSource;
+		final Locale loc = (locale != null ? locale : Locale.getDefault());
 		String desc = "Node login user information.";
-		MessageSource ms = messageSource;
 		if ( ms != null ) {
-			desc = ms.getMessage("users.desc", null, desc, locale);
+			desc = nonnull(ms.getMessage("users.desc", null, desc, loc), "Description");
 		}
 		return new SimpleBackupResourceInfo(resource.getProviderKey(), resource.getBackupPath(), desc);
 	}
@@ -601,7 +611,7 @@ public class SettingsUserService implements UserService, UserDetailsService, Bac
 	 *        the message source
 	 * @since 2.2
 	 */
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 
