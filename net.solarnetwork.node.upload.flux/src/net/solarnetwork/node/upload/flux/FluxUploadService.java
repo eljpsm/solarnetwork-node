@@ -25,11 +25,12 @@ package net.solarnetwork.node.upload.flux;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static net.solarnetwork.node.service.OperationalModesService.hasActiveOperationalMode;
 import static net.solarnetwork.service.OptionalService.service;
 import static net.solarnetwork.settings.support.SettingUtils.dynamicListSettingSpecifier;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Hex;
+import org.jspecify.annotations.Nullable;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 import org.slf4j.LoggerFactory;
@@ -182,15 +184,15 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	private final ObjectMapper objectMapper;
 	private final IdentityService identityService;
 	private final DatumQueue datumQueue;
-	private String requiredOperationalMode;
-	private Pattern excludePropertyNamesPattern = DEFAULT_EXCLUDE_PROPERTY_NAMES_PATTERN;
-	private OperationalModesService opModesService;
-	private Executor executor;
-	private FluxFilterConfig[] filters;
+	private @Nullable String requiredOperationalMode;
+	private @Nullable Pattern excludePropertyNamesPattern = DEFAULT_EXCLUDE_PROPERTY_NAMES_PATTERN;
+	private @Nullable OperationalModesService opModesService;
+	private @Nullable Executor executor;
+	private FluxFilterConfig @Nullable [] filters;
 	private boolean includeVersionTag = DEFAULT_INCLUDE_VERSION_TAG;
-	private OptionalServiceCollection<ObjectEncoder> datumEncoders;
-	private OptionalServiceCollection<DatumFilterService> transformServices;
-	private OptionalService<MqttMessageDao> mqttMessageDao;
+	private @Nullable OptionalServiceCollection<ObjectEncoder> datumEncoders;
+	private @Nullable OptionalServiceCollection<DatumFilterService> transformServices;
+	private @Nullable OptionalService<MqttMessageDao> mqttMessageDao;
 	private int cachedMessagePublishMaximum = DEFAULT_CACHED_MESSAGE_PUBLISH_MAXIMUM;
 	private boolean publishRetained = DEFAULT_PUBLISH_RETAINED;
 	private boolean mqttMessageDaoRequired;
@@ -208,14 +210,16 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 *        the identity service
 	 * @param datumQueue
 	 *        the queue to accept datum from
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public FluxUploadService(MqttConnectionFactory connectionFactory, ObjectMapper objectMapper,
 			IdentityService identityService, DatumQueue datumQueue) {
 		super(connectionFactory, new StatTracker("SolarFlux", null,
 				LoggerFactory.getLogger(FluxUploadService.class), 100));
-		this.objectMapper = objectMapper;
-		this.identityService = identityService;
-		this.datumQueue = datumQueue;
+		this.objectMapper = requireNonNullArgument(objectMapper, "objectMapper");
+		this.identityService = requireNonNullArgument(identityService, "identityService");
+		this.datumQueue = requireNonNullArgument(datumQueue, "datumQueue");
 		setPublishQos(DEFAULT_MQTT_QOS);
 		getMqttConfig().setUsername(DEFAULT_MQTT_USERNAME);
 		getMqttConfig().setServerUriValue(DEFAULT_MQTT_HOST);
@@ -257,11 +261,11 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	}
 
 	@Override
-	public synchronized void configurationChanged(Map<String, Object> properties) {
+	public synchronized void configurationChanged(@Nullable Map<String, Object> properties) {
 		getMqttConfig().setUid("SolarFluxUpload-" + getMqttConfig().getServerUriValue());
 		MqttConnection conn = connection();
-		if ( conn instanceof ReconfigurableMqttConnection ) {
-			((ReconfigurableMqttConnection) conn).reconfigure();
+		if ( conn instanceof ReconfigurableMqttConnection rconn ) {
+			rconn.reconfigure();
 		}
 		FluxFilterConfig[] filters = getFilters();
 		if ( filters != null ) {
@@ -273,7 +277,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 
 	@Override
 	public void onMqttServerConnectionLost(MqttConnection connection, boolean willReconnect,
-			Throwable cause) {
+			@Nullable Throwable cause) {
 		// nothing special here
 	}
 
@@ -287,7 +291,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		MqttMessageDao dao = OptionalService.service(mqttMessageDao);
 		String dest = getMqttConfig().getServerUriValue();
 		int timeoutSecs = getMqttConfig().getConnectTimeoutSeconds();
-		if ( dao != null ) {
+		if ( dao != null && dest != null ) {
 			log.info("Starting task to publish cached MQTT messages to {}.", dest);
 			mqttMessageDaoDiscovered = true;
 			Runnable task = new PublishCachedMessagesTask(dest, dao, connection, timeoutSecs,
@@ -387,7 +391,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 
 	}
 
-	private String getMqttClientId() {
+	private @Nullable String getMqttClientId() {
 		final Long nodeId = identityService.getNodeId();
 		return (nodeId != null ? nodeId.toString() : null);
 	}
@@ -506,8 +510,9 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		publishDatum(activeFilters, datum.getSourceId(), data);
 	}
 
-	private FluxFilterConfig[] activeFilters(FluxFilterConfig[] filters, String sourceId) {
-		if ( filters == null || filters.length < 1 ) {
+	private FluxFilterConfig @Nullable [] activeFilters(FluxFilterConfig @Nullable [] filters,
+			@Nullable String sourceId) {
+		if ( filters == null || filters.length < 1 || sourceId == null ) {
 			return null;
 		}
 		final OperationalModesService opModesService = this.opModesService;
@@ -525,8 +530,8 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		}).toArray(FluxFilterConfig[]::new);
 	}
 
-	private boolean shouldPublishDatum(FluxFilterConfig[] activeFilters, String sourceId,
-			Map<String, Object> data) {
+	private boolean shouldPublishDatum(FluxFilterConfig @Nullable [] activeFilters,
+			@Nullable String sourceId, @Nullable Map<String, Object> data) {
 		Long ts = System.currentTimeMillis();
 		Long prevTs = SOURCE_CAPTURE_TIMES.get(sourceId);
 		if ( activeFilters != null ) {
@@ -545,10 +550,10 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		return true;
 	}
 
-	private void publishDatum(FluxFilterConfig[] activeFilters, String sourceId,
-			Map<String, Object> data) {
+	private void publishDatum(FluxFilterConfig @Nullable [] activeFilters, @Nullable String sourceId,
+			@Nullable Map<String, Object> data) {
 		final Long nodeId = identityService.getNodeId();
-		if ( nodeId == null ) {
+		if ( nodeId == null || sourceId == null || data == null ) {
 			return;
 		}
 		if ( !shouldPublishDatum(activeFilters, sourceId, data) ) {
@@ -620,7 +625,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 				}
 			}
 		}
-		if ( msgToPersist != null ) {
+		if ( dao != null && msgToPersist != null ) {
 			String dest = getMqttConfig().getServerUriValue();
 			if ( dest != null ) {
 				if ( canLog ) {
@@ -635,34 +640,37 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		}
 	}
 
-	private static boolean canLogForDatum(String sourceId) {
-		return !(LOG_SOURCE_ID.equalsIgnoreCase(sourceId) || sourceId.startsWith(LOG_SOURCE_ID_PREFIX));
+	private static boolean canLogForDatum(@Nullable String sourceId) {
+		return !(sourceId == null || LOG_SOURCE_ID.equalsIgnoreCase(sourceId)
+				|| sourceId.startsWith(LOG_SOURCE_ID_PREFIX));
 	}
 
-	private ObjectEncoder encoderForSourceId(FluxFilterConfig[] activeFilters, String sourceId) {
+	private @Nullable ObjectEncoder encoderForSourceId(FluxFilterConfig @Nullable [] activeFilters,
+			@Nullable String sourceId) {
 		return serviceForSourceId(activeFilters, sourceId, getDatumEncoders(),
 				FluxFilterConfig::getDatumEncoderUid);
 	}
 
-	private DatumFilterService filterServiceForSourceId(FluxFilterConfig[] activeFilters,
-			String sourceId) {
+	private @Nullable DatumFilterService filterServiceForSourceId(
+			FluxFilterConfig @Nullable [] activeFilters, @Nullable String sourceId) {
 		return serviceForSourceId(activeFilters, sourceId, getTransformServices(),
 				FluxFilterConfig::getTransformServiceUid);
 	}
 
-	private <T extends Identifiable> T serviceForSourceId(FluxFilterConfig[] activeFilters,
-			String sourceId, OptionalServiceCollection<T> services,
-			Function<FluxFilterConfig, String> uidProvider) {
+	private <T extends Identifiable> @Nullable T serviceForSourceId(
+			FluxFilterConfig @Nullable [] activeFilters, @Nullable String sourceId,
+			@Nullable OptionalServiceCollection<T> services,
+			Function<FluxFilterConfig, @Nullable String> uidProvider) {
 		if ( services == null ) {
 			return null;
 		}
-		if ( activeFilters == null || activeFilters.length < 1 ) {
+		if ( activeFilters == null || activeFilters.length < 1 || sourceId == null ) {
 			return null;
 		}
 		Iterable<T> serviceItr = null;
 		for ( FluxFilterConfig cfg : activeFilters ) {
 			String uid = (cfg != null ? uidProvider.apply(cfg) : null);
-			if ( uid == null || uid.isEmpty() ) {
+			if ( cfg == null || uid == null || uid.isEmpty() ) {
 				continue;
 			}
 			Pattern filterSourceId = cfg.getSourceIdRegex();
@@ -682,7 +690,8 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		return null;
 	}
 
-	private Map<String, Object> mapForDatum(FluxFilterConfig[] activeFilters, NodeDatum datum) {
+	private @Nullable Map<String, Object> mapForDatum(FluxFilterConfig @Nullable [] activeFilters,
+			NodeDatum datum) {
 		Map<String, Object> map = new LinkedHashMap<>();
 
 		DatumFilterService xform = filterServiceForSourceId(activeFilters, datum.getSourceId());
@@ -738,7 +747,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 		Map<String, String> qosTitles = new LinkedHashMap<String, String>(3);
 		for ( MqttQos qos : MqttQos.values() ) {
 			String code = String.format("mqttQos.%d.title", qos.getValue());
-			qosTitles.put(String.valueOf(qos.getValue()), getMessageSource().getMessage(code,
+			qosTitles.put(String.valueOf(qos.getValue()), messageSource().getMessage(code,
 					new Object[] { qos.getValue() }, qos.toString(), null));
 		}
 		qosSpec.setValueTitles(qosTitles);
@@ -763,26 +772,33 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 				new SettingUtils.KeyedListCallback<FluxFilterConfig>() {
 
 					@Override
-					public Collection<SettingSpecifier> mapListSettingKey(FluxFilterConfig value,
-							int index, String key) {
+					public Collection<SettingSpecifier> mapListSettingKey(
+							@Nullable FluxFilterConfig value, int index, String key) {
+						if ( value == null ) {
+							return List.of();
+						}
 						BasicGroupSettingSpecifier configGroup = new BasicGroupSettingSpecifier(
 								value.getSettingSpecifiers(key + "."));
-						return singletonList(configGroup);
+						return List.of(configGroup);
 					}
 				}));
 
 		return results;
 	}
 
+	private StatTracker mqttStats() {
+		return nonnull(getMqttStats(), "MQTT stats");
+	}
+
 	private String getStatusMessage() {
 		final MqttConnection conn = connection();
 		final boolean connected = (conn != null ? conn.isEstablished() : false);
-		String connMsg = getMessageSource().getMessage(
+		String connMsg = messageSource().getMessage(
 				format("status.%s", connected ? "connected" : "disconnected"), null,
 				Locale.getDefault());
-		final StatTracker s = getMqttStats();
+		final StatTracker s = mqttStats();
 		// @formatter:off
-		return getMessageSource().getMessage("status.msg",
+		return messageSource().getMessage("status.msg",
 				new Object[] {
 						connMsg,
 						s.get(MqttBasicCount.MessagesDelivered),
@@ -793,7 +809,8 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 
 	@Override
 	public String getPingTestName() {
-		return getDisplayName();
+		String name = getDisplayName();
+		return (name != null ? name : "Flux Upload Service");
 	}
 
 	@Override
@@ -820,14 +837,14 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 				|| opModesService.isOperationalModeActive(requiredOperationalMode)) ) {
 			r = super.performPingTest();
 		} else {
-			r = new PingTestResult(true, getMessageSource().getMessage("status.opModeDoesNotMatch",
+			r = new PingTestResult(true, messageSource().getMessage("status.opModeDoesNotMatch",
 					new Object[] { requiredOperationalMode }, Locale.getDefault()));
 		}
 		Map<String, Object> props = new LinkedHashMap<>(8);
 		if ( r.getProperties() != null ) {
 			props.putAll(r.getProperties());
 		}
-		final Map<String, Long> stats = getMqttStats().allCounts();
+		final Map<String, Long> stats = mqttStats().allCounts();
 		for ( MqttBasicCount stat : Arrays.asList(MqttBasicCount.ConnectionAttempts,
 				MqttBasicCount.ConnectionFail, MqttBasicCount.ConnectionLost,
 				MqttBasicCount.MessagesDelivered, MqttBasicCount.MessagesDeliveredFail,
@@ -840,7 +857,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 			MqttMessageDao dao = service(mqttMessageDao);
 			if ( dao == null ) {
 				success = false;
-				msg = getMessageSource().getMessage("status.mqttMessageDaoMissing", null,
+				msg = messageSource().getMessage("status.mqttMessageDaoMissing", null,
 						"MqttMessageDao missing.", Locale.getDefault());
 				if ( r.getMessage() != null ) {
 					msg += " " + r.getMessage();
@@ -878,7 +895,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * Set the MQTT password to use.
 	 *
 	 * @param mqttPassword
-	 *        the password, or {@literal null} for no password
+	 *        the password, or {@code null} for no password
 	 */
 	public void setMqttPassword(String mqttPassword) {
 		getMqttConfig().setPassword(mqttPassword);
@@ -888,7 +905,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * Set the MQTT version to use.
 	 *
 	 * @param mqttVersion
-	 *        the version, or {@literal null} for a default version
+	 *        the version, or {@code null} for a default version
 	 * @since 1.8
 	 */
 	public void setMqttVersion(MqttVersion mqttVersion) {
@@ -900,7 +917,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * to be established.
 	 *
 	 * @param requiredOperationalMode
-	 *        the mode to require, or {@literal null} to enable by default
+	 *        the mode to require, or {@code null} to enable by default
 	 */
 	public void setRequiredOperationalMode(String requiredOperationalMode) {
 		if ( requiredOperationalMode == this.requiredOperationalMode
@@ -969,7 +986,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * </p>
 	 *
 	 * @param regex
-	 *        the regular expression or {@literal null} for no filter; pattern
+	 *        the regular expression or {@code null} for no filter; pattern
 	 *        syntax errors are ignored and result in no regular expression
 	 *        being used
 	 * @since 1.1
@@ -989,10 +1006,10 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	/**
 	 * Get a list of filter configurations to apply to datum.
 	 *
-	 * @return the filters to apply, or {@literal null}
+	 * @return the filters to apply, or {@code null}
 	 * @since 1.4
 	 */
-	public FluxFilterConfig[] getFilters() {
+	public FluxFilterConfig @Nullable [] getFilters() {
 		return filters;
 	}
 
@@ -1004,10 +1021,10 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * </p>
 	 *
 	 * @param filters
-	 *        the filters to apply, or {@literal null}
+	 *        the filters to apply, or {@code null}
 	 * @since 1.4
 	 */
-	public void setFilters(FluxFilterConfig[] filters) {
+	public void setFilters(FluxFilterConfig @Nullable [] filters) {
 		this.filters = filters;
 	}
 
@@ -1068,7 +1085,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * @return the encoder services
 	 * @since 1.7
 	 */
-	public OptionalServiceCollection<ObjectEncoder> getDatumEncoders() {
+	public @Nullable OptionalServiceCollection<ObjectEncoder> getDatumEncoders() {
 		return datumEncoders;
 	}
 
@@ -1079,7 +1096,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 *        the encoders to set
 	 * @since 1.7
 	 */
-	public void setDatumEncoders(OptionalServiceCollection<ObjectEncoder> datumEncoders) {
+	public void setDatumEncoders(@Nullable OptionalServiceCollection<ObjectEncoder> datumEncoders) {
 		this.datumEncoders = datumEncoders;
 	}
 
@@ -1100,7 +1117,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * @return the transform services
 	 * @since 1.9
 	 */
-	public OptionalServiceCollection<DatumFilterService> getTransformServices() {
+	public @Nullable OptionalServiceCollection<DatumFilterService> getTransformServices() {
 		return transformServices;
 	}
 
@@ -1111,7 +1128,8 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 *        the services to set
 	 * @since 1.9
 	 */
-	public void setTransformServices(OptionalServiceCollection<DatumFilterService> transformServices) {
+	public void setTransformServices(
+			@Nullable OptionalServiceCollection<DatumFilterService> transformServices) {
 		this.transformServices = transformServices;
 	}
 
@@ -1121,7 +1139,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 * @return the DAO to use for offline MQTT messages
 	 * @since 1.10
 	 */
-	public OptionalService<MqttMessageDao> getMqttMessageDao() {
+	public @Nullable OptionalService<MqttMessageDao> getMqttMessageDao() {
 		return mqttMessageDao;
 	}
 
@@ -1132,7 +1150,7 @@ public class FluxUploadService extends BaseMqttConnectionService implements Even
 	 *        the DAO to use for offline MQTT messages
 	 * @since 1.10
 	 */
-	public void setMqttMessageDao(OptionalService<MqttMessageDao> mqttMessageDao) {
+	public void setMqttMessageDao(@Nullable OptionalService<MqttMessageDao> mqttMessageDao) {
 		this.mqttMessageDao = mqttMessageDao;
 	}
 

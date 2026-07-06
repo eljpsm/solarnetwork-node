@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -56,24 +57,24 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 
 	private static final Logger log = LoggerFactory.getLogger(FluxFilterConfig.class);
 
-	private static final class NullStringObjectFactory implements ObjectFactory<String> {
+	private static final class NullStringObjectFactory implements ObjectFactory<@Nullable String> {
 
 		@Override
-		public String getObject() throws BeansException {
+		public @Nullable String getObject() throws BeansException {
 			return null;
 		}
 	}
 
-	private Pattern sourceIdRegex;
-	private String datumEncoderUid;
-	private String transformServiceUid;
-	private String requiredOperationalMode;
-	private Integer frequencySeconds;
-	private String[] propIncludeValues;
-	private String[] propExcludeValues;
+	private @Nullable Pattern sourceIdRegex;
+	private @Nullable String datumEncoderUid;
+	private @Nullable String transformServiceUid;
+	private @Nullable String requiredOperationalMode;
+	private @Nullable Integer frequencySeconds;
+	private @Nullable String @Nullable [] propIncludeValues;
+	private @Nullable String @Nullable [] propExcludeValues;
 
-	private Pattern[] propIncludes;
-	private Pattern[] propExcludes;
+	private @Nullable Pattern @Nullable [] propIncludes;
+	private @Nullable Pattern @Nullable [] propExcludes;
 
 	/**
 	 * Constructor.
@@ -82,10 +83,11 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 		super();
 	}
 
-	private static Pattern[] patterns(String[] expr) {
+	private static @Nullable Pattern @Nullable [] patterns(@Nullable String @Nullable [] expr) {
 		if ( expr == null ) {
 			return null;
 		}
+		@Nullable
 		Pattern[] res = new Pattern[expr.length];
 		for ( int i = 0, len = res.length; i < len; i++ ) {
 			String r = expr[i];
@@ -105,13 +107,14 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	private static class SimpleKeyedListCallback implements SettingUtils.KeyedListCallback<String> {
 
 		@Override
-		public Collection<SettingSpecifier> mapListSettingKey(String value, int index, String key) {
+		public Collection<SettingSpecifier> mapListSettingKey(@Nullable String value, int index,
+				String key) {
 			return singletonList(new BasicTextFieldSettingSpecifier(key, ""));
 		}
 	}
 
 	@Override
-	public void configurationChanged(Map<String, Object> properties) {
+	public void configurationChanged(@Nullable Map<String, Object> properties) {
 		this.propIncludes = patterns(propIncludeValues);
 		this.propExcludes = patterns(propExcludeValues);
 	}
@@ -126,7 +129,7 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 *         ID pattern, or no pattern is defined
 	 * @since 1.3
 	 */
-	public boolean isSourceIdMatch(String sourceId) {
+	public boolean isSourceIdMatch(@Nullable String sourceId) {
 		if ( sourceIdRegex != null && sourceId != null ) {
 			return sourceIdRegex.matcher(sourceId).find();
 		}
@@ -139,17 +142,17 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 *
 	 * @param previousSourceIdPublishDate
 	 *        the last known publish date for the given {@code sourceId} value,
-	 *        or {@literal null} if not known
+	 *        or {@code null} if not known
 	 * @param sourceId
-	 *        the source ID to test, or {@literal null} if none
+	 *        the source ID to test, or {@code null} if none
 	 * @param datum
 	 *        the datum data
 	 * @return {@literal false} if the datum should <b>not</b> be published,
 	 *         {@literal true} if the datum <b>may</b> be published, although
 	 *         another filter might determine it should not be
 	 */
-	public boolean isPublishAllowed(final Long previousSourceIdPublishDate, String sourceId,
-			Map<String, Object> datum) {
+	public boolean isPublishAllowed(final @Nullable Long previousSourceIdPublishDate,
+			@Nullable String sourceId, @Nullable Map<String, Object> datum) {
 		if ( datum == null ) {
 			return false;
 		}
@@ -168,14 +171,14 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 		}
 
 		// check for special case of "exclude all" pattern, to short-circuit property checking
-		final Pattern[] excludes = this.propExcludes;
+		final @Nullable Pattern @Nullable [] excludes = this.propExcludes;
 		if ( excludes != null && excludes.length == 1 && excludes[0] != null
 				&& excludes[0].pattern().equals(".*") ) {
 			log.trace("Filtering {} because of global property exclude filter", sourceId);
 			return false;
 		}
 
-		final Pattern[] includes = this.propIncludes;
+		final @Nullable Pattern @Nullable [] includes = this.propIncludes;
 		if ( includes != null && includes.length > 0 ) {
 			for ( Iterator<String> itr = datum.keySet().iterator(); itr.hasNext(); ) {
 				String propName = itr.next();
@@ -242,7 +245,8 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 		SimpleKeyedListCallback cb = new SimpleKeyedListCallback();
 
 		// prop includes
-		String[] exprs = getPropIncludeValues();
+		@Nullable
+		String @Nullable [] exprs = getPropIncludeValues();
 		List<String> exprList = (exprs != null ? asList(exprs) : emptyList());
 		result.add(dynamicListSettingSpecifier(prefix + "propIncludeValues", exprList, cb));
 
@@ -289,10 +293,10 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	/**
 	 * Get the source ID regular expression.
 	 *
-	 * @return the source ID expression, or {@literal null} for including all
+	 * @return the source ID expression, or {@code null} for including all
 	 *         source IDs
 	 */
-	public Pattern getSourceIdRegex() {
+	public @Nullable Pattern getSourceIdRegex() {
 		return sourceIdRegex;
 	}
 
@@ -302,19 +306,19 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * @param sourceIdRegex
 	 *        a pattern to match against source IDs; if defined then this filter
 	 *        will only apply to datum with matching source ID values; if
-	 *        {@literal null} then this filter applies to all datum
+	 *        {@code null} then this filter applies to all datum
 	 */
-	public void setSourceIdRegex(Pattern sourceIdRegex) {
+	public void setSourceIdRegex(@Nullable Pattern sourceIdRegex) {
 		this.sourceIdRegex = sourceIdRegex;
 	}
 
 	/**
 	 * Get the source ID regular expression as a string.
 	 *
-	 * @return the source ID expression string, or {@literal null} for including
+	 * @return the source ID expression string, or {@code null} for including
 	 *         all source IDs
 	 */
-	public String getSourceIdRegexValue() {
+	public @Nullable String getSourceIdRegexValue() {
 		Pattern p = getSourceIdRegex();
 		return (p != null ? p.pattern() : null);
 	}
@@ -325,15 +329,15 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * <p>
 	 * Errors compiling {@code sourceIdRegex} into a {@link Pattern} will be
 	 * silently ignored, causing the regular expression to be set to
-	 * {@literal null}.
+	 * {@code null}.
 	 * </p>
 	 *
 	 * @param sourceIdRegex
 	 *        a pattern to match against source IDs; if defined then this filter
 	 *        will only apply to datum with matching source ID values; if
-	 *        {@literal null} then this filter applies to all datum
+	 *        {@code null} then this filter applies to all datum
 	 */
-	public void setSourceIdRegexValue(String sourceIdRegex) {
+	public void setSourceIdRegexValue(@Nullable String sourceIdRegex) {
 		Pattern p = null;
 		if ( sourceIdRegex != null ) {
 			try {
@@ -348,9 +352,9 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	/**
 	 * Get the minimum number of seconds to limit datum to.
 	 *
-	 * @return a frequency in seconds, or {@literal null}
+	 * @return a frequency in seconds, or {@code null}
 	 */
-	public Integer getFrequencySeconds() {
+	public @Nullable Integer getFrequencySeconds() {
 		return frequencySeconds;
 	}
 
@@ -358,20 +362,20 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * Get the minimum number of seconds to limit datum to.
 	 *
 	 * @param frequencySeconds
-	 *        a frequency in seconds, or {@literal null} or anything less than
+	 *        a frequency in seconds, or {@code null} or anything less than
 	 *        {@literal 1} for no limit
 	 */
-	public void setFrequencySeconds(Integer frequencySeconds) {
+	public void setFrequencySeconds(@Nullable Integer frequencySeconds) {
 		this.frequencySeconds = frequencySeconds;
 	}
 
 	/**
 	 * Get a list of property name regular expression values to limit data to.
 	 *
-	 * @return a list of expressions, or {@literal null}
+	 * @return a list of expressions, or {@code null}
 	 * @see #getPropIncludeValues()
 	 */
-	public String[] getPropIncludeValues() {
+	public @Nullable String @Nullable [] getPropIncludeValues() {
 		return propIncludeValues;
 	}
 
@@ -379,10 +383,10 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * Set a list of property name regular expression values to limit datum to.
 	 *
 	 * @param propIncludes
-	 *        a list of expressions, or {@literal null}
+	 *        a list of expressions, or {@code null}
 	 * @see #setPropIncludeValues(String[])
 	 */
-	public void setPropIncludeValues(String[] propIncludes) {
+	public void setPropIncludeValues(@Nullable String @Nullable [] propIncludes) {
 		this.propIncludeValues = propIncludes;
 	}
 
@@ -392,17 +396,19 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * @return The number of {@code excludes} elements.
 	 */
 	public int getPropIncludeValuesCount() {
-		String[] pats = getPropIncludeValues();
+		@Nullable
+		String @Nullable [] pats = getPropIncludeValues();
 		return (pats == null ? 0 : pats.length);
 	}
 
 	/**
 	 * Adjust the number of configured {@code excludes} elements. Any newly
-	 * added element values will be {@literal null}.
+	 * added element values will be {@code null}.
 	 *
 	 * @param count
 	 *        The desired number of {@code excludes} elements.
 	 */
+	@SuppressWarnings("NullAway")
 	public void setPropIncludeValuesCount(int count) {
 		this.propIncludeValues = ArrayUtils.arrayWithLength(this.propIncludeValues, count, String.class,
 				new NullStringObjectFactory());
@@ -412,10 +418,10 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * Get a list of property name regular expression values to exclude from
 	 * datum.
 	 *
-	 * @return a list of patterns, or {@literal null}
+	 * @return a list of patterns, or {@code null}
 	 * @see #getPropExcludeValues()
 	 */
-	public String[] getPropExcludeValues() {
+	public @Nullable String @Nullable [] getPropExcludeValues() {
 		return propExcludeValues;
 	}
 
@@ -424,10 +430,10 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * datum.
 	 *
 	 * @param propExcludes
-	 *        a lit of expressions, or {@literal null}
+	 *        a lit of expressions, or {@code null}
 	 * @see #setPropExcludeValues(String[])
 	 */
-	public void setPropExcludeValues(String[] propExcludes) {
+	public void setPropExcludeValues(@Nullable String @Nullable [] propExcludes) {
 		this.propExcludeValues = propExcludes;
 	}
 
@@ -437,17 +443,19 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * @return The number of {@code excludes} elements.
 	 */
 	public int getPropExcludeValuesCount() {
-		String[] pats = getPropExcludeValues();
+		@Nullable
+		String @Nullable [] pats = getPropExcludeValues();
 		return (pats == null ? 0 : pats.length);
 	}
 
 	/**
 	 * Adjust the number of configured {@code excludes} elements. Any newly
-	 * added element values will be {@literal null}.
+	 * added element values will be {@code null}.
 	 *
 	 * @param count
 	 *        The desired number of {@code excludes} elements.
 	 */
+	@SuppressWarnings("NullAway")
 	public void setPropExcludeValuesCount(int count) {
 		this.propExcludeValues = ArrayUtils.arrayWithLength(this.propExcludeValues, count, String.class,
 				new NullStringObjectFactory());
@@ -460,7 +468,7 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * @return the datumEncoderUid the UID of the encoder service to use
 	 * @since 1.1
 	 */
-	public String getDatumEncoderUid() {
+	public @Nullable String getDatumEncoderUid() {
 		return datumEncoderUid;
 	}
 
@@ -472,7 +480,7 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 *        the datumEncoderUid to set
 	 * @since 1.1
 	 */
-	public void setDatumEncoderUid(String datumEncoderUid) {
+	public void setDatumEncoderUid(@Nullable String datumEncoderUid) {
 		this.datumEncoderUid = datumEncoderUid;
 	}
 
@@ -480,10 +488,10 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 * Get the UID of a {code GeneralDatumSamplesTransformService} to transform
 	 * the datum with.
 	 *
-	 * @return the UID, or {@literal null}
+	 * @return the UID, or {@code null}
 	 * @since 1.2
 	 */
-	public String getTransformServiceUid() {
+	public @Nullable String getTransformServiceUid() {
 		return transformServiceUid;
 	}
 
@@ -495,7 +503,7 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 *        the UID to set
 	 * @since 1.2
 	 */
-	public void setTransformServiceUid(String transformServiceUid) {
+	public void setTransformServiceUid(@Nullable String transformServiceUid) {
 		this.transformServiceUid = transformServiceUid;
 	}
 
@@ -506,7 +514,7 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 *         to be applicable
 	 * @since 1.3
 	 */
-	public String getRequiredOperationalMode() {
+	public @Nullable String getRequiredOperationalMode() {
 		return requiredOperationalMode;
 	}
 
@@ -515,10 +523,10 @@ public class FluxFilterConfig implements SettingsChangeObserver {
 	 *
 	 * @param requiredOperationalMode
 	 *        the operational mode that must be active for this configuration to
-	 *        be applicable, or {@literal null} for no requirement
+	 *        be applicable, or {@code null} for no requirement
 	 * @since 1.3
 	 */
-	public void setRequiredOperationalMode(String requiredOperationalMode) {
+	public void setRequiredOperationalMode(@Nullable String requiredOperationalMode) {
 		this.requiredOperationalMode = requiredOperationalMode;
 	}
 
