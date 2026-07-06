@@ -27,6 +27,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.domain.datum.DatumSamplePropertyConfig;
 import net.solarnetwork.domain.datum.DatumSamplesType;
 import net.solarnetwork.domain.datum.NumberDatumSamplePropertyConfig;
@@ -104,7 +105,7 @@ public class MetricHarvesterPropertyConfig extends NumberDatumSamplePropertyConf
 	 *
 	 * @return the metric name
 	 */
-	public String getMetricName() {
+	public @Nullable String getMetricName() {
 		return getConfig();
 	}
 
@@ -118,7 +119,7 @@ public class MetricHarvesterPropertyConfig extends NumberDatumSamplePropertyConf
 	 * @param name
 	 *        the metric name to set
 	 */
-	public void setMetricName(String name) {
+	public void setMetricName(@Nullable String name) {
 		setConfig(name);
 	}
 

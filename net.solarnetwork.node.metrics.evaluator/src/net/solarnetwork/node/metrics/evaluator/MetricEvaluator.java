@@ -23,10 +23,6 @@
 package net.solarnetwork.node.metrics.evaluator;
 
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static net.solarnetwork.node.metrics.evaluator.NamedMetricAggregate.namedMetricAggregate;
@@ -35,8 +31,10 @@ import static net.solarnetwork.node.reactor.InstructionUtils.createStatus;
 import static net.solarnetwork.service.OptionalService.service;
 import static net.solarnetwork.service.OptionalServiceCollection.services;
 import static net.solarnetwork.util.NumberUtils.bigDecimalForNumber;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import static net.solarnetwork.util.StringNaturalSortComparator.CASE_INSENSITIVE_NATURAL_SORT;
+import static net.solarnetwork.util.StringUtils.commaDelimitedStringToMap;
 import static net.solarnetwork.util.StringUtils.commaDelimitedStringToSet;
 import static net.solarnetwork.util.StringUtils.delimitedStringFromCollection;
 import java.math.BigDecimal;
@@ -47,9 +45,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +55,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.expression.ExpressionException;
@@ -139,12 +136,15 @@ public class MetricEvaluator extends BaseIdentifiable
 	public static final String METRIC_MINUTE_OF_DAY = "minuteOfDay";
 
 	/** The {@code metricAggregates} property default value. */
-	public List<NamedMetricAggregate> DEFAULT_METRIC_AGGREGATES = Collections
-			.unmodifiableList(Arrays.asList(namedMetricAggregate(BasicMetricAggregate.Minimum),
-					namedMetricAggregate(BasicMetricAggregate.Maximum),
-					namedMetricAggregate(BasicMetricAggregate.Average),
-					namedMetricAggregate(ParameterizedMetricAggregate.METRIC_TYPE_QUANTILE_25, "p1"),
-					namedMetricAggregate(ParameterizedMetricAggregate.METRIC_TYPE_QUANTILE_75, "p2")));
+	public List<NamedMetricAggregate> DEFAULT_METRIC_AGGREGATES = List.of(
+	// @formatter:off
+			  namedMetricAggregate(BasicMetricAggregate.Minimum)
+			, namedMetricAggregate(BasicMetricAggregate.Maximum)
+			, namedMetricAggregate(BasicMetricAggregate.Average)
+			, namedMetricAggregate(ParameterizedMetricAggregate.METRIC_TYPE_QUANTILE_25, "p1")
+			, namedMetricAggregate(ParameterizedMetricAggregate.METRIC_TYPE_QUANTILE_75, "p2")
+			);
+	// @formatter:on
 
 	/** The {@code stats.logFrequency} default value. */
 	public static final int DEFAULT_STAT_LOG_FREQUENCY = 100;
@@ -161,25 +161,25 @@ public class MetricEvaluator extends BaseIdentifiable
 	private final ConcurrentMap<String, ConcurrentMap<String, Metric>> latestMetricAggregations = new ConcurrentHashMap<>(
 			8, 0.9f, 2);
 
-	private OptionalService<OperationalModesService> opModesService;
-	private OptionalService<DatumService> datumService;
-	private OptionalService<DatumQueue> datumQueue;
-	private OptionalServiceCollection<TariffScheduleProvider> tariffScheduleProviders;
+	private @Nullable OptionalService<OperationalModesService> opModesService;
+	private @Nullable OptionalService<DatumService> datumService;
+	private @Nullable OptionalService<DatumQueue> datumQueue;
+	private @Nullable OptionalServiceCollection<TariffScheduleProvider> tariffScheduleProviders;
 
-	private Set<String> metrics;
+	private @Nullable Set<String> metrics;
 	private Duration metricAggregateTimeOffsetStart = DEFAULT_METRIC_AGGREGATE_TIME_OFFSET_START;
 	private Duration metricAggregateTimeOffsetEnd = DEFAULT_METRIC_AGGREGATE_TIME_OFFSET_END;
 	private Map<String, NamedMetricAggregate> metricAggregates = aggregateMap(DEFAULT_METRIC_AGGREGATES);
-	private String parametersMetadataPath;
-	private String outputInstructionTopic;
-	private String outputInstructionParam;
-	private String evaluationSourceId;
-	private String requiredOperationalMode;
-	private ExpressionConfig[] paramExpressionConfigs;
-	private ExpressionConfig[] expressionConfigs;
+	private @Nullable String parametersMetadataPath;
+	private @Nullable String outputInstructionTopic;
+	private @Nullable String outputInstructionParam;
+	private @Nullable String evaluationSourceId;
+	private @Nullable String requiredOperationalMode;
+	private ExpressionConfig @Nullable [] paramExpressionConfigs;
+	private ExpressionConfig @Nullable [] expressionConfigs;
 
-	private String[] metricNames;
-	private EvaluationResult lastEvaluationResult;
+	private String @Nullable [] metricNames;
+	private @Nullable EvaluationResult lastEvaluationResult;
 
 	/**
 	 * Generate a key mapping of aggregates.
@@ -250,7 +250,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	}
 
 	@Override
-	public synchronized void configurationChanged(Map<String, Object> properties) {
+	public synchronized void configurationChanged(@Nullable Map<String, Object> properties) {
 		metricNames = metrics != null ? metrics.toArray(new String[metrics.size()]) : new String[0];
 
 		// paramExpression types forced to status to allow string values
@@ -265,7 +265,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	@Override
 	public Collection<String> publishedSourceIds() {
 		final String sourceId = resolvePlaceholders(evaluationSourceId);
-		return (sourceId != null ? Collections.singleton(sourceId) : Collections.emptyList());
+		return (sourceId != null ? List.of(sourceId) : List.of());
 	}
 
 	@Override
@@ -342,9 +342,8 @@ public class MetricEvaluator extends BaseIdentifiable
 			try {
 				final String paramName = getOutputInstructionParam();
 				final String paramVal = (paramName != null && !paramName.isEmpty()
-						? (result.output instanceof BigDecimal
-								? ((BigDecimal) result.output).toPlainString()
-								: result.output.toString())
+						? (result.output instanceof BigDecimal n ? n.toPlainString()
+								: (result.output != null ? result.output.toString() : null))
 						: null);
 				Instruction instr = InstructionUtils.createLocalInstruction(instrTopic, paramName,
 						paramVal);
@@ -372,7 +371,7 @@ public class MetricEvaluator extends BaseIdentifiable
 					"No InstructionExecutionService available to execute [{}] instruction with [{}] -> [{}]",
 					instrTopic, getOutputInstructionParam(), result);
 			return new EvaluationResult(result.ts,
-					getMessageSource().getMessage("evaluation.noInstructionExecutionService", null,
+					messageSource().getMessage("evaluation.noInstructionExecutionService", null,
 							"No InstructionExecutionService avaialble.", Locale.getDefault()),
 					result.inputs, result.output, result.outputExpressionIndex);
 		}
@@ -387,15 +386,15 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *        the expressions to evaluate
 	 * @return an error message, or {@literal null} if no error occurred
 	 */
-	private String populateParamExpressionParameters(final Map<String, Object> parameters,
-			final ExpressionConfig[] expressionConfs) {
+	private @Nullable String populateParamExpressionParameters(final Map<String, Object> parameters,
+			final ExpressionConfig @Nullable [] expressionConfs) {
 		if ( expressionConfs == null || expressionConfs.length < 1 ) {
 			return null;
 		}
 
 		Iterable<ExpressionService> services = services(getExpressionServices());
 		if ( services == null ) {
-			return getMessageSource().getMessage("evaluation.noExpressionServices", null,
+			return messageSource().getMessage("evaluation.noExpressionServices", null,
 					"No expression services available.", Locale.getDefault());
 		}
 
@@ -417,7 +416,7 @@ public class MetricEvaluator extends BaseIdentifiable
 			} catch ( ExpressionException e ) {
 				log.warn("Error parsing MetricEvaluator [{}] parameter expression `{}`: {}", getUid(),
 						config.getExpression(), e.getMessage());
-				return getMessageSource().getMessage("evaluation.expressionSyntaxError",
+				return messageSource().getMessage("evaluation.expressionSyntaxError",
 						new Object[] { (exprIdx + 1), e.getMessage() },
 						"Error parsing parameter expression " + (exprIdx + 1) + ": " + e.getMessage(),
 						Locale.getDefault());
@@ -440,7 +439,7 @@ public class MetricEvaluator extends BaseIdentifiable
 					log.warn(
 							"Error evaluating MetricEvaluator [{}] parameter expression `{}`: {}\n\nExpression root: {}",
 							getUid(), config.getExpression(), e.getMessage(), root);
-					return getMessageSource().getMessage("evaluation.expressionEvaluationError",
+					return messageSource().getMessage("evaluation.expressionEvaluationError",
 							new Object[] { (exprIdx + 1), e.getMessage() },
 							"Error evaluating expression " + (exprIdx + 1) + ": " + e.getMessage(),
 							Locale.getDefault());
@@ -458,24 +457,24 @@ public class MetricEvaluator extends BaseIdentifiable
 	private Map<String, ?> parameters() {
 		final String metadataPath = getParametersMetadataPath();
 		if ( metadataPath == null || metadataPath.isEmpty() ) {
-			return emptyMap();
+			return Map.of();
 		}
 		final MetadataService service = service(getMetadataService());
 		if ( service == null ) {
 			log.warn("MetadataService service [{}] not available, unable to resolve parameters.",
 					getMetadataServiceUid());
-			return emptyMap();
+			return Map.of();
 		}
 		Object o = service.metadataAtPath(metadataPath);
 		if ( o == null ) {
 			log.warn("No parameters found at metadata path [{}], unable to resolve parameters.",
 					metadataPath);
-			return emptyMap();
+			return Map.of();
 		}
 		if ( !(o instanceof Map<?, ?>) ) {
 			log.warn("Unsupported object found at metadata path [{}], unable to resolve parameters.",
 					metadataPath);
-			return emptyMap();
+			return Map.of();
 		}
 		return (Map) o;
 	}
@@ -485,7 +484,7 @@ public class MetricEvaluator extends BaseIdentifiable
 		Iterable<ExpressionService> services = services(getExpressionServices());
 		if ( services == null || expressionConfs == null || expressionConfs.length < 1 ) {
 			return new EvaluationResult(ts,
-					getMessageSource().getMessage(
+					messageSource().getMessage(
 							services == null ? "evaluation.noExpressionServices"
 									: "evaluation.noExpressions",
 							null, services == null ? "No expression services available."
@@ -513,7 +512,7 @@ public class MetricEvaluator extends BaseIdentifiable
 				log.warn("Error parsing MetricEvaluator [{}] expression `{}`: {}", getUid(),
 						config.getExpression(), e.getMessage());
 				return new EvaluationResult(ts,
-						getMessageSource().getMessage("evaluation.expressionSyntaxError",
+						messageSource().getMessage("evaluation.expressionSyntaxError",
 								new Object[] { (exprIdx + 1), e.getMessage() },
 								"Error parsing expression " + (exprIdx + 1) + ": " + e.getMessage(),
 								Locale.getDefault()),
@@ -537,7 +536,7 @@ public class MetricEvaluator extends BaseIdentifiable
 					log.warn(
 							"Error evaluating MetricEvaluator [{}] expression `{}`: {}\n\nExpression root: {}",
 							getUid(), config.getExpression(), e.getMessage(), root);
-					return new EvaluationResult(ts, getMessageSource().getMessage(
+					return new EvaluationResult(ts, messageSource().getMessage(
 							"evaluation.expressionEvaluationError",
 							new Object[] { (exprIdx + 1), e.getMessage() },
 							"Error evaluating expression " + (exprIdx + 1) + ": " + e.getMessage(),
@@ -550,7 +549,7 @@ public class MetricEvaluator extends BaseIdentifiable
 			}
 		}
 
-		return new EvaluationResult(ts, getMessageSource().getMessage("evaluation.noResult", null,
+		return new EvaluationResult(ts, messageSource().getMessage("evaluation.noResult", null,
 				"No result produced.", Locale.getDefault()), parameters);
 	}
 
@@ -625,47 +624,44 @@ public class MetricEvaluator extends BaseIdentifiable
 		final Iterable<ExpressionService> exprServices = services(getExpressionServices());
 		if ( exprServices != null ) {
 			ExpressionConfig[] preExprConfs = getParamExpressionConfigs();
-			List<ExpressionConfig> preExprConfsList = (preExprConfs != null ? asList(preExprConfs)
-					: emptyList());
+			List<ExpressionConfig> preExprConfsList = (preExprConfs != null ? List.of(preExprConfs)
+					: List.of());
 			result.add(SettingUtils.dynamicListSettingSpecifier("paramExpressionConfigs",
 					preExprConfsList, new SettingUtils.KeyedListCallback<ExpressionConfig>() {
 
 						@Override
-						public Collection<SettingSpecifier> mapListSettingKey(ExpressionConfig value,
-								int index, String key) {
+						public Collection<SettingSpecifier> mapListSettingKey(
+								@Nullable ExpressionConfig value, int index, String key) {
 							List<SettingSpecifier> exprSettings = ExpressionConfig
 									.settings(MetricEvaluator.class, key + ".", exprServices);
 							// remove type as not used here
 							exprSettings = exprSettings.stream().filter((s) -> {
-								return !((s instanceof KeyedSettingSpecifier<?>)
-										&& (((KeyedSettingSpecifier<?>) s).getKey()
-												.endsWith(".datumPropertyTypeKey")));
-							}).collect(toList());
+								return !((s instanceof KeyedSettingSpecifier<?> ks)
+										&& ks.getKey().endsWith(".datumPropertyTypeKey"));
+							}).toList();
 							SettingSpecifier configGroup = new BasicGroupSettingSpecifier(exprSettings);
-							return singletonList(configGroup);
+							return List.of(configGroup);
 						}
 					}));
 
 			ExpressionConfig[] exprConfs = getExpressionConfigs();
-			List<ExpressionConfig> exprConfsList = (exprConfs != null ? asList(exprConfs) : emptyList());
+			List<ExpressionConfig> exprConfsList = (exprConfs != null ? List.of(exprConfs) : List.of());
 			result.add(SettingUtils.dynamicListSettingSpecifier("expressionConfigs", exprConfsList,
 					new SettingUtils.KeyedListCallback<ExpressionConfig>() {
 
 						@Override
-						public Collection<SettingSpecifier> mapListSettingKey(ExpressionConfig value,
-								int index, String key) {
+						public Collection<SettingSpecifier> mapListSettingKey(
+								@Nullable ExpressionConfig value, int index, String key) {
 							List<SettingSpecifier> exprSettings = ExpressionConfig
 									.settings(MetricEvaluator.class, key + ".", exprServices);
 							// remove type and name as not used here
 							exprSettings = exprSettings.stream().filter((s) -> {
-								return !((s instanceof KeyedSettingSpecifier<?>)
-										&& (((KeyedSettingSpecifier<?>) s).getKey()
-												.endsWith(".datumPropertyTypeKey")
-												|| (((KeyedSettingSpecifier<?>) s).getKey()
-														.endsWith(".name"))));
+								return !((s instanceof KeyedSettingSpecifier<?> ks)
+										&& (ks.getKey().endsWith(".datumPropertyTypeKey")
+												|| ks.getKey().endsWith(".name")));
 							}).collect(toList());
 							SettingSpecifier configGroup = new BasicGroupSettingSpecifier(exprSettings);
-							return singletonList(configGroup);
+							return List.of(configGroup);
 						}
 					}));
 		}
@@ -674,7 +670,7 @@ public class MetricEvaluator extends BaseIdentifiable
 
 	private String statusMessage(final Locale locale) {
 		final StringBuilder buf = new StringBuilder();
-		final MessageSource msg = getMessageSource();
+		final MessageSource msg = messageSource();
 		final String none = msg.getMessage("evaluationStatus.none", null, locale);
 		final Accumulation evalProcessingTime = stats
 				.getAccumulation(MetricEvaluatorStat.ProcessingTime);
@@ -727,7 +723,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	}
 
 	private String evaluationStatusMessage(final Locale locale) {
-		final MessageSource msg = getMessageSource();
+		final MessageSource msg = messageSource();
 		final EvaluationResult result = this.lastEvaluationResult;
 		if ( result == null ) {
 			return msg.getMessage("evaluationStatus.none", null, locale);
@@ -760,7 +756,7 @@ public class MetricEvaluator extends BaseIdentifiable
 		}
 		buf.append(msg.getMessage("evaluationTable.foot", null, locale));
 
-		if ( result.outputInstructionStatus != null ) {
+		if ( result.outputInstructionStatus != null && result.outputInstruction != null ) {
 			Map<String, String> params = result.outputInstruction.getParameterMap();
 			Entry<String, String> param = (params != null && !params.isEmpty()
 					? params.entrySet().iterator().next()
@@ -778,25 +774,26 @@ public class MetricEvaluator extends BaseIdentifiable
 	private static class EvaluationResult {
 
 		private final Instant ts;
-		private final String message;
+		private final @Nullable String message;
 		private final Map<String, ?> inputs;
-		private final Number output;
+		private final @Nullable Number output;
 		private final int outputExpressionIndex;
-		private final Instruction outputInstruction;
-		private final InstructionStatus outputInstructionStatus;
+		private final @Nullable Instruction outputInstruction;
+		private final @Nullable InstructionStatus outputInstructionStatus;
 
-		private EvaluationResult(Instant ts, String message, Map<String, ?> inputs) {
+		private EvaluationResult(Instant ts, @Nullable String message, Map<String, ?> inputs) {
 			this(ts, message, inputs, null, -1, null, null);
 		}
 
-		private EvaluationResult(Instant ts, String message, Map<String, ?> inputs, Number output,
-				int outputExpressionIndex) {
+		private EvaluationResult(Instant ts, @Nullable String message, Map<String, ?> inputs,
+				@Nullable Number output, int outputExpressionIndex) {
 			this(ts, message, inputs, output, outputExpressionIndex, null, null);
 		}
 
-		private EvaluationResult(Instant ts, String message, Map<String, ?> inputs, Number output,
-				int outputExpressionIndex, Instruction outputInstruction,
-				InstructionStatus outputInstructionStatus) {
+		private EvaluationResult(Instant ts, @Nullable String message, Map<String, ?> inputs,
+				@Nullable Number output, int outputExpressionIndex,
+				@Nullable Instruction outputInstruction,
+				@Nullable InstructionStatus outputInstructionStatus) {
 			super();
 			this.ts = ts;
 			this.message = message;
@@ -832,7 +829,7 @@ public class MetricEvaluator extends BaseIdentifiable
 			if ( output != null ) {
 				s.putInstantaneousSampleValue("output", output);
 			}
-			if ( outputInstructionStatus != null
+			if ( outputInstructionStatus != null && outputInstruction != null
 					&& outputInstructionStatus.getInstructionState() != InstructionState.Completed ) {
 				s.putStatusSampleValue("outputInstruction", outputInstruction.getTopic());
 				s.putStatusSampleValue("instructionState",
@@ -843,7 +840,7 @@ public class MetricEvaluator extends BaseIdentifiable
 
 	}
 
-	private void publishDatum(EvaluationResult result) {
+	private void publishDatum(@Nullable EvaluationResult result) {
 		if ( result == null ) {
 			return;
 		}
@@ -878,7 +875,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the metric names
 	 */
-	public final Set<String> getMetrics() {
+	public final @Nullable Set<String> getMetrics() {
 		return metrics;
 	}
 
@@ -888,7 +885,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param metrics
 	 *        the metric names to set
 	 */
-	public final void setMetrics(Set<String> metrics) {
+	public final void setMetrics(@Nullable Set<String> metrics) {
 		this.metrics = metrics;
 	}
 
@@ -897,7 +894,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the metric names as a key list
 	 */
-	public final String getMetricsValue() {
+	public final @Nullable String getMetricsValue() {
 		return delimitedStringFromCollection(metrics, ", ");
 	}
 
@@ -907,7 +904,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param value
 	 *        the metric names to set as a key list
 	 */
-	public final void setMetricsValue(String value) {
+	public final void setMetricsValue(@Nullable String value) {
 		setMetrics(commaDelimitedStringToSet(value));
 	}
 
@@ -1053,7 +1050,7 @@ public class MetricEvaluator extends BaseIdentifiable
 
 				// support mapping of keys to names using k=n syntax
 				if ( key.indexOf('=') > 0 ) {
-					Map<String, String> m = StringUtils.commaDelimitedStringToMap(key);
+					Map<String, String> m = nonnull(commaDelimitedStringToMap(key), "Mapping");
 					if ( !m.isEmpty() ) {
 						for ( Entry<String, String> e : m.entrySet() ) {
 							key = e.getKey();
@@ -1123,10 +1120,10 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the service UID
 	 */
-	public final String getMetadataServiceUid() {
+	public final @Nullable String getMetadataServiceUid() {
 		final OptionalService<MetadataService> service = getMetadataService();
-		if ( service instanceof FilterableService ) {
-			return ((FilterableService) service).getPropertyValue(UID_PROPERTY);
+		if ( service instanceof FilterableService fs ) {
+			return fs.getPropertyValue(UID_PROPERTY);
 		}
 		return null;
 	}
@@ -1137,10 +1134,10 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param uid
 	 *        the service UID
 	 */
-	public final void setMetadataServiceUid(String uid) {
+	public final void setMetadataServiceUid(@Nullable String uid) {
 		final OptionalService<MetadataService> service = getMetadataService();
-		if ( service instanceof FilterableService ) {
-			((FilterableService) service).setPropertyFilter(UID_PROPERTY, uid);
+		if ( service instanceof FilterableService fs ) {
+			fs.setPropertyFilter(UID_PROPERTY, uid);
 		}
 	}
 
@@ -1149,7 +1146,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the service, or {@literal null}
 	 */
-	public OptionalService<OperationalModesService> getOpModesService() {
+	public final @Nullable OptionalService<OperationalModesService> getOpModesService() {
 		return opModesService;
 	}
 
@@ -1160,7 +1157,8 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *        the service to use
 	 * @since 1.1
 	 */
-	public void setOpModesService(OptionalService<OperationalModesService> opModesService) {
+	public final void setOpModesService(
+			@Nullable OptionalService<OperationalModesService> opModesService) {
 		this.opModesService = opModesService;
 	}
 
@@ -1169,7 +1167,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the datum queue
 	 */
-	public OptionalService<DatumQueue> getDatumQueue() {
+	public final @Nullable OptionalService<DatumQueue> getDatumQueue() {
 		return datumQueue;
 	}
 
@@ -1179,7 +1177,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param datumQueue
 	 *        the datum queue to use
 	 */
-	public void setDatumQueue(OptionalService<DatumQueue> datumQueue) {
+	public final void setDatumQueue(@Nullable OptionalService<DatumQueue> datumQueue) {
 		this.datumQueue = datumQueue;
 	}
 
@@ -1188,7 +1186,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the datum service
 	 */
-	public OptionalService<DatumService> getDatumService() {
+	public final @Nullable OptionalService<DatumService> getDatumService() {
 		return datumService;
 	}
 
@@ -1198,7 +1196,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param datumService
 	 *        the datum service
 	 */
-	public void setDatumService(OptionalService<DatumService> datumService) {
+	public final void setDatumService(@Nullable OptionalService<DatumService> datumService) {
 		this.datumService = datumService;
 	}
 
@@ -1207,7 +1205,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the metadata path
 	 */
-	public final String getParametersMetadataPath() {
+	public final @Nullable String getParametersMetadataPath() {
 		return parametersMetadataPath;
 	}
 
@@ -1217,7 +1215,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param parametersMetadataPath
 	 *        the metadata path to set
 	 */
-	public final void setParametersMetadataPath(String parametersMetadataPath) {
+	public final void setParametersMetadataPath(@Nullable String parametersMetadataPath) {
 		this.parametersMetadataPath = parametersMetadataPath;
 	}
 
@@ -1226,7 +1224,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the expression configurations
 	 */
-	public ExpressionConfig[] getParamExpressionConfigs() {
+	public ExpressionConfig @Nullable [] getParamExpressionConfigs() {
 		return paramExpressionConfigs;
 	}
 
@@ -1236,7 +1234,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param expressionConfigs
 	 *        the configs to use
 	 */
-	public void setParamExpressionConfigs(ExpressionConfig[] expressionConfigs) {
+	public void setParamExpressionConfigs(ExpressionConfig @Nullable [] expressionConfigs) {
 		this.paramExpressionConfigs = expressionConfigs;
 	}
 
@@ -1271,7 +1269,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the expression configurations
 	 */
-	public ExpressionConfig[] getExpressionConfigs() {
+	public ExpressionConfig @Nullable [] getExpressionConfigs() {
 		return expressionConfigs;
 	}
 
@@ -1281,7 +1279,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param expressionConfigs
 	 *        the configs to use
 	 */
-	public void setExpressionConfigs(ExpressionConfig[] expressionConfigs) {
+	public void setExpressionConfigs(ExpressionConfig @Nullable [] expressionConfigs) {
 		this.expressionConfigs = expressionConfigs;
 	}
 
@@ -1316,7 +1314,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the instruction topic
 	 */
-	public final String getOutputInstructionTopic() {
+	public final @Nullable String getOutputInstructionTopic() {
 		return outputInstructionTopic;
 	}
 
@@ -1326,7 +1324,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param outputInstructionTopic
 	 *        the instruction topic to set
 	 */
-	public final void setOutputInstructionTopic(String outputInstructionTopic) {
+	public final void setOutputInstructionTopic(@Nullable String outputInstructionTopic) {
 		this.outputInstructionTopic = outputInstructionTopic;
 	}
 
@@ -1335,7 +1333,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the parameter name
 	 */
-	public final String getOutputInstructionParam() {
+	public final @Nullable String getOutputInstructionParam() {
 		return outputInstructionParam;
 	}
 
@@ -1345,7 +1343,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @param outputInstructionParam
 	 *        the parameter name to set
 	 */
-	public final void setOutputInstructionParam(String outputInstructionParam) {
+	public final void setOutputInstructionParam(@Nullable String outputInstructionParam) {
 		this.outputInstructionParam = outputInstructionParam;
 	}
 
@@ -1383,7 +1381,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @return the source ID, or {@literal null} to not generate any evaluation
 	 *         datum
 	 */
-	public final String getEvaluationSourceId() {
+	public final @Nullable String getEvaluationSourceId() {
 		return evaluationSourceId;
 	}
 
@@ -1394,7 +1392,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *        the source ID to set, or {@literal null} to not generate any
 	 *        evaluation datum
 	 */
-	public final void setEvaluationSourceId(String evaluationSourceId) {
+	public final void setEvaluationSourceId(@Nullable String evaluationSourceId) {
 		this.evaluationSourceId = evaluationSourceId;
 	}
 
@@ -1403,7 +1401,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *
 	 * @return the providers
 	 */
-	public final OptionalServiceCollection<TariffScheduleProvider> getTariffScheduleProviders() {
+	public final @Nullable OptionalServiceCollection<TariffScheduleProvider> getTariffScheduleProviders() {
 		return tariffScheduleProviders;
 	}
 
@@ -1414,7 +1412,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *        the providers to set
 	 */
 	public final void setTariffScheduleProviders(
-			OptionalServiceCollection<TariffScheduleProvider> tariffScheduleProviders) {
+			@Nullable OptionalServiceCollection<TariffScheduleProvider> tariffScheduleProviders) {
 		this.tariffScheduleProviders = tariffScheduleProviders;
 	}
 
@@ -1424,7 +1422,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 * @return the required operational mode, or {@literal null} for none
 	 * @since 1.2
 	 */
-	public String getRequiredOperationalMode() {
+	public final @Nullable String getRequiredOperationalMode() {
 		return requiredOperationalMode;
 	}
 
@@ -1436,7 +1434,7 @@ public class MetricEvaluator extends BaseIdentifiable
 	 *        string that will be treated as {@literal null}
 	 * @since 1.2
 	 */
-	public void setRequiredOperationalMode(String requiredOperationalMode) {
+	public final void setRequiredOperationalMode(@Nullable String requiredOperationalMode) {
 		if ( requiredOperationalMode != null && requiredOperationalMode.trim().isEmpty() ) {
 			requiredOperationalMode = null;
 		}

@@ -23,6 +23,7 @@
 package net.solarnetwork.node.metrics.evaluator;
 
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.node.metrics.domain.Metric;
 import net.solarnetwork.node.metrics.domain.MetricAggregate;
 
@@ -91,7 +92,7 @@ public final class NamedMetricAggregate implements MetricAggregate {
 	}
 
 	@Override
-	public Object[] getParameters() {
+	public Object @Nullable [] getParameters() {
 		return delegate.getParameters();
 	}
 
@@ -101,7 +102,7 @@ public final class NamedMetricAggregate implements MetricAggregate {
 	}
 
 	@Override
-	public Number numberParameter(int idx) {
+	public @Nullable Number numberParameter(int idx) {
 		return delegate.numberParameter(idx);
 	}
 

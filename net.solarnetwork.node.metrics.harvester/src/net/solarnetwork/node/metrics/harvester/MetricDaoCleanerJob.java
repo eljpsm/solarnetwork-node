@@ -22,15 +22,13 @@
 
 package net.solarnetwork.node.metrics.harvester;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.solarnetwork.node.job.JobService;
@@ -83,9 +81,9 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 			return results;
 		}
 
-		private Duration age;
-		private Set<String> types = Collections.singleton(DEFAULT_TYPE);
-		private Set<String> names;
+		private @Nullable Duration age;
+		private @Nullable Set<String> types = Set.of(DEFAULT_TYPE);
+		private @Nullable Set<String> names;
 
 		/**
 		 * Constructor.
@@ -108,7 +106,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 *
 		 * @return the age
 		 */
-		public Duration getAge() {
+		public @Nullable Duration getAge() {
 			return age;
 		}
 
@@ -118,7 +116,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 * @param age
 		 *        the age to set
 		 */
-		public void setAge(Duration age) {
+		public void setAge(@Nullable Duration age) {
 			this.age = age;
 		}
 
@@ -127,7 +125,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 *
 		 * @return the age, in days
 		 */
-		public Long getAgeDays() {
+		public @Nullable Long getAgeDays() {
 			final Duration d = getAge();
 			return (d != null ? d.toDays() : null);
 		}
@@ -138,7 +136,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 * @param days
 		 *        the age to set, in days
 		 */
-		public void setAgeDays(Long days) {
+		public void setAgeDays(@Nullable Long days) {
 			setAge(days != null ? Duration.ofDays(days) : null);
 		}
 
@@ -147,7 +145,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 *
 		 * @return the types
 		 */
-		public Set<String> getTypes() {
+		public @Nullable Set<String> getTypes() {
 			return types;
 		}
 
@@ -157,7 +155,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 * @param types
 		 *        the types to set
 		 */
-		public void setTypes(Set<String> types) {
+		public void setTypes(@Nullable Set<String> types) {
 			this.types = types;
 		}
 
@@ -166,7 +164,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 *
 		 * @return the types
 		 */
-		public String getTypesValue() {
+		public @Nullable String getTypesValue() {
 			return StringUtils.commaDelimitedStringFromCollection(types);
 		}
 
@@ -176,7 +174,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 * @param value
 		 *        the types to set
 		 */
-		public void setTypesValue(String value) {
+		public void setTypesValue(@Nullable String value) {
 			setTypes(StringUtils.commaDelimitedStringToSet(value));
 		}
 
@@ -185,7 +183,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 *
 		 * @return the names
 		 */
-		public Set<String> getNames() {
+		public @Nullable Set<String> getNames() {
 			return names;
 		}
 
@@ -195,7 +193,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 * @param names
 		 *        the names to set
 		 */
-		public void setNames(Set<String> names) {
+		public void setNames(@Nullable Set<String> names) {
 			this.names = names;
 		}
 
@@ -204,7 +202,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 *
 		 * @return the names
 		 */
-		public String getNamesValue() {
+		public @Nullable String getNamesValue() {
 			return StringUtils.commaDelimitedStringFromCollection(names);
 		}
 
@@ -214,7 +212,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		 * @param value
 		 *        the names to set
 		 */
-		public void setNamesValue(String value) {
+		public void setNamesValue(@Nullable String value) {
 			setNames(StringUtils.commaDelimitedStringToSet(value));
 		}
 
@@ -223,7 +221,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 	private final Logger log = LoggerFactory.getLogger(MetricDaoCleanerJob.class);
 
 	private final MetricDao metricDao;
-	private MetricCleanConfig[] configs;
+	private MetricCleanConfig @Nullable [] configs;
 
 	/**
 	 * Constructor.
@@ -249,16 +247,16 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 		List<SettingSpecifier> result = new ArrayList<>(8);
 
 		MetricCleanConfig[] propConfs = getConfigs();
-		List<MetricCleanConfig> propConfList = (propConfs != null ? asList(propConfs) : emptyList());
+		List<MetricCleanConfig> propConfList = (propConfs != null ? List.of(propConfs) : List.of());
 		result.add(SettingUtils.dynamicListSettingSpecifier("configs", propConfList,
 				new SettingUtils.KeyedListCallback<MetricCleanConfig>() {
 
 					@Override
-					public Collection<SettingSpecifier> mapListSettingKey(MetricCleanConfig value,
-							int index, String key) {
+					public Collection<SettingSpecifier> mapListSettingKey(
+							@Nullable MetricCleanConfig value, int index, String key) {
 						SettingSpecifier configGroup = new BasicGroupSettingSpecifier(
 								MetricCleanConfig.settings(key + "."));
-						return Collections.singletonList(configGroup);
+						return List.of(configGroup);
 					}
 				}));
 
@@ -304,7 +302,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 	 *
 	 * @return the configurations
 	 */
-	public MetricCleanConfig[] getConfigs() {
+	public final MetricCleanConfig @Nullable [] getConfigs() {
 		return configs;
 	}
 
@@ -314,7 +312,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 	 * @param configs
 	 *        the configurations to use
 	 */
-	public void setConfigs(MetricCleanConfig[] configs) {
+	public final void setConfigs(MetricCleanConfig @Nullable [] configs) {
 		this.configs = configs;
 	}
 
@@ -323,7 +321,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 	 *
 	 * @return the number of {@code configs} elements
 	 */
-	public int getConfigsCount() {
+	public final int getConfigsCount() {
 		MetricCleanConfig[] confs = this.configs;
 		return (confs == null ? 0 : confs.length);
 	}
@@ -339,7 +337,7 @@ public class MetricDaoCleanerJob extends BaseIdentifiable implements JobService 
 	 * @param count
 	 *        The desired number of {@code configs} elements.
 	 */
-	public void setConfigsCount(int count) {
+	public final void setConfigsCount(int count) {
 		this.configs = ArrayUtils.arrayWithLength(this.configs, count, MetricCleanConfig.class,
 				MetricCleanConfig::new);
 	}
