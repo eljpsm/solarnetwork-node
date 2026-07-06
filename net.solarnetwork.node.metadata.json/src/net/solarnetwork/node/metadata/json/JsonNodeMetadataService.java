@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.metadata.json;
 
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import net.solarnetwork.domain.InstructionStatus.InstructionState;
 import net.solarnetwork.domain.datum.GeneralDatumMetadata;
@@ -56,7 +58,7 @@ import net.solarnetwork.util.CachedResult;
  * </p>
  *
  * @author matt
- * @version 2.4
+ * @version 2.5
  * @since 1.7
  */
 public class JsonNodeMetadataService extends JsonHttpClientSupport
@@ -73,13 +75,20 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 	 */
 	public static final String SETTING_UID = "net.solarnetwork.node.metadata.json";
 
+	/**
+	 * The {@base baseUrl} property default value.
+	 *
+	 * @since 2.5
+	 */
+	public static final String DEFAULT_BASE_URL = "/api/v1/sec/nodes/meta";
+
 	private int cacheSeconds = DEFAULT_CACHE_SECONDS;
 
-	private String baseUrl = "/api/v1/sec/nodes/meta";
+	private String baseUrl = DEFAULT_BASE_URL;
 
-	private CachedResult<GeneralDatumMetadata> cachedMetadata;
+	private @Nullable CachedResult<GeneralDatumMetadata> cachedMetadata;
 
-	private GeneralDatumMetadata localMetadata;
+	private @Nullable GeneralDatumMetadata localMetadata;
 
 	/**
 	 * Constructor.
@@ -89,7 +98,7 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public synchronized void configurationChanged(Map<String, Object> properties) {
+	public synchronized void configurationChanged(@Nullable Map<String, Object> properties) {
 		cachedMetadata = null;
 	}
 
@@ -113,12 +122,12 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public synchronized GeneralDatumMetadata getAllMetadata() {
+	public synchronized @Nullable GeneralDatumMetadata getAllMetadata() {
 		return getNodeMetadata();
 	}
 
 	private String nodeMetadataUrl() {
-		return (getIdentityService().getSolarInBaseUrl() + baseUrl);
+		return (nonnull(identityService().getSolarInBaseUrl(), "SolarIn URL") + baseUrl);
 	}
 
 	private synchronized void cacheMetadata(final GeneralDatumMetadata meta) {
@@ -137,7 +146,9 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 		CachedResult<GeneralDatumMetadata> cached = this.cachedMetadata;
 		if ( cached != null && cached.isValid() ) {
 			if ( cached.getResult() != null ) {
-				cached.getResult().merge(localMetadata, true);
+				if ( localMetadata != null ) {
+					cached.getResult().merge(localMetadata, true);
+				}
 			} else if ( cacheSeconds > 0 ) {
 				this.cachedMetadata = new CachedResult<>(newMeta, cacheSeconds, TimeUnit.SECONDS);
 			}
@@ -170,7 +181,7 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public GeneralDatumMetadata getNodeMetadata() {
+	public @Nullable GeneralDatumMetadata getNodeMetadata() {
 		final CachedResult<GeneralDatumMetadata> cachedMetadata = this.cachedMetadata;
 		if ( cachedMetadata != null && cachedMetadata.isValid() ) {
 			return cachedMetadata.getResult();
@@ -196,12 +207,12 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return InstructionHandler.TOPIC_SIGNAL.equalsIgnoreCase(topic);
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
 		if ( instruction == null || !handlesTopic(instruction.getTopic()) ) {
 			return null;
 		}
@@ -224,7 +235,7 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 
 	private String getStatusMessage() {
 		final CachedResult<GeneralDatumMetadata> cached = this.cachedMetadata;
-		final MessageSource msgSource = getMessageSource();
+		final MessageSource msgSource = messageSource();
 		if ( cached == null ) {
 			return msgSource.getMessage("status.noneCached", null, Locale.getDefault());
 		}
@@ -266,10 +277,11 @@ public class JsonNodeMetadataService extends JsonHttpClientSupport
 	 * Set the base URL.
 	 *
 	 * @param baseUrl
-	 *        the baseUrl to set
+	 *        the baseUrl to set; if {@code null} then {@link #DEFAULT_BASE_URL}
+	 *        will be used
 	 */
 	public void setBaseUrl(String baseUrl) {
-		this.baseUrl = baseUrl;
+		this.baseUrl = (baseUrl != null ? baseUrl : DEFAULT_BASE_URL);
 	}
 
 }

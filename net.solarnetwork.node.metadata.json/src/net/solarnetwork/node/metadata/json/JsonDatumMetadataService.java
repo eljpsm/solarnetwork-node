@@ -24,6 +24,8 @@ package net.solarnetwork.node.metadata.json;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singleton;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
+import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -40,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.scheduling.TaskScheduler;
@@ -64,6 +67,7 @@ import net.solarnetwork.settings.SettingSpecifierProvider;
 import net.solarnetwork.settings.SettingsChangeObserver;
 import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
 import net.solarnetwork.util.CachedResult;
+import net.solarnetwork.util.ObjectUtils;
 import net.solarnetwork.util.StringUtils;
 
 /**
@@ -141,10 +145,10 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	private final TaskScheduler taskScheduler;
 	private final ConcurrentMap<String, CachedMetadata> sourceMetadata;
 	private final ConcurrentMap<ObjectDatumStreamMetadataId, CachedResult<ObjectDatumStreamMetadata>> datumStreamMetadata;
-	private SettingDao settingDao;
+	private @Nullable SettingDao settingDao;
 	private int updateThrottleSeconds = DEFAULT_UPDATE_THROTTLE_SECONDS;
 	private int updatePersistDelaySeconds = DEFAULT_UPDATE_PERSIST_DELAY_SECONDS;
-	private ScheduledFuture<?> syncTask;
+	private @Nullable ScheduledFuture<?> syncTask;
 	private int datumStreamMetadataCacheSeconds = DEFATUL_DATUM_STREAM_METADATA_CACHE_SECONDS;
 
 	/**
@@ -154,6 +158,8 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	 *        the settings service to use
 	 * @param taskScheduler
 	 *        the task scheduler to use
+	 * @throws IllegalArgumentException
+	 *         if any argument is {@code null}
 	 */
 	public JsonDatumMetadataService(SettingsService settingsService, TaskScheduler taskScheduler) {
 		this(settingsService, taskScheduler, null, null);
@@ -171,13 +177,16 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	 * @param datumStreamMetadata
 	 *        the stream metadata cache to use
 	 * @since 1.7
+	 * @throws IllegalArgumentException
+	 *         if {@code settingsService} or {@code taskSchduler} are
+	 *         {@code null}
 	 */
 	public JsonDatumMetadataService(SettingsService settingsService, TaskScheduler taskScheduler,
-			ConcurrentMap<String, CachedMetadata> sourceMetadata,
-			ConcurrentMap<ObjectDatumStreamMetadataId, CachedResult<ObjectDatumStreamMetadata>> datumStreamMetadata) {
+			@Nullable ConcurrentMap<String, CachedMetadata> sourceMetadata,
+			@Nullable ConcurrentMap<ObjectDatumStreamMetadataId, CachedResult<ObjectDatumStreamMetadata>> datumStreamMetadata) {
 		super();
-		this.settingsService = settingsService;
-		this.taskScheduler = taskScheduler;
+		this.settingsService = requireNonNullArgument(settingsService, "settingsService");
+		this.taskScheduler = requireNonNullArgument(taskScheduler, "taskScheduler");
 		this.sourceMetadata = (sourceMetadata != null ? sourceMetadata
 				: new ConcurrentHashMap<>(8, 0.9f, 4));
 		this.datumStreamMetadata = (datumStreamMetadata != null ? datumStreamMetadata
@@ -209,13 +218,13 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return DATUM_SOURCE_METADATA_CACHE_CLEAR_TOPIC.equalsIgnoreCase(topic)
 				|| InstructionHandler.TOPIC_SIGNAL.equalsIgnoreCase(topic);
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
 		if ( instruction == null || !handlesTopic(instruction.getTopic()) ) {
 			return null;
 		}
@@ -234,7 +243,8 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 			return InstructionUtils.createStatus(instruction, InstructionState.Declined, InstructionUtils
 					.createErrorResultParameters("No sourceIds parameter provided,", "JDMS.0001"));
 		}
-		final Set<String> sources = StringUtils.commaDelimitedStringToSet(sourceIds);
+		final Set<String> sources = nonnull(StringUtils.commaDelimitedStringToSet(sourceIds),
+				"Source IDs");
 		for ( String sourceId : sources ) {
 			CachedMetadata m = sourceMetadata.remove(sourceId);
 			if ( m != null ) {
@@ -248,7 +258,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		return InstructionUtils.createStatus(instruction, InstructionState.Completed);
 	}
 
-	private InstructionStatus processSignalInstruction(Instruction instruction) {
+	private @Nullable InstructionStatus processSignalInstruction(Instruction instruction) {
 		for ( String paramName : instruction.getParameterNames() ) {
 			if ( SETTING_UID.equals(paramName) ) {
 				if ( CLEAR_CACHE_SIGNAL.equals(instruction.getParameterValue(paramName)) ) {
@@ -279,11 +289,11 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		private long lastChange = 0;
 		private long lastSync = 0;
 		private long lastPersist = 0;
-		private ScheduledFuture<?> persistTask;
+		private @Nullable ScheduledFuture<?> persistTask;
 
-		private CachedMetadata(String sourceId, GeneralDatumMetadata metadata) {
+		private CachedMetadata(String sourceId, @Nullable GeneralDatumMetadata metadata) {
 			super();
-			this.sourceId = sourceId;
+			this.sourceId = requireNonNullArgument(sourceId, "sourceId");
 			this.metadata = (metadata != null ? metadata : new GeneralDatumMetadata());
 		}
 
@@ -369,7 +379,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 				final long timestamp) {
 			try {
 				final String sourceKey = DigestUtils.md5DigestAsHex(sourceId.getBytes(UTF_8));
-				byte[] json = getObjectMapper().writeValueAsBytes(meta);
+				byte[] json = objectMapper().writeValueAsBytes(meta);
 				ByteArrayResource r = new ByteArrayResource(json, sourceId + " metadata");
 				settingsService.importSettingResources(getSettingUid(), null, sourceKey, singleton(r));
 				setPersisted(timestamp);
@@ -401,7 +411,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public synchronized void configurationChanged(Map<String, Object> properties) {
+	public synchronized void configurationChanged(@Nullable Map<String, Object> properties) {
 		if ( properties == null ) {
 			return;
 		}
@@ -457,25 +467,28 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	@Override
 	public Iterable<Resource> currentSettingResources(String settingKey) {
 		// not supported
-		return null;
+		return List.of();
 	}
 
 	@Override
-	public SettingsUpdates applySettingResources(String settingKey, Iterable<Resource> resources)
-			throws IOException {
+	public @Nullable SettingsUpdates applySettingResources(String settingKey,
+			Iterable<Resource> resources) throws IOException {
 		// not used
 		return null;
+	}
+
+	private String solarInUrl() {
+		return nonnull(identityService().getSolarInBaseUrl(), "SolarIn URL");
 	}
 
 	private String nodeSourceMetadataUrl(String sourceId) {
 		StringBuilder buf = new StringBuilder();
 		appendXWWWFormURLEncodedValue(buf, "sourceId", sourceId);
-		return (getIdentityService().getSolarInBaseUrl() + baseUrl + '/'
-				+ getIdentityService().getNodeId() + '?' + buf);
+		return (solarInUrl() + baseUrl + '/' + identityService().getNodeId() + '?' + buf);
 	}
 
 	@Override
-	public GeneralDatumMetadata getSourceMetadata(String sourceId) {
+	public @Nullable GeneralDatumMetadata getSourceMetadata(String sourceId) {
 		CachedMetadata cachedMetadata = getCachedMetadata(sourceId);
 		GeneralDatumMetadata meta = cachedMetadata.metadata;
 		log.debug("Source metadata for [{}]: {}", sourceId, meta);
@@ -492,7 +505,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		});
 	}
 
-	private GeneralDatumMetadata fetchMetadata(String sourceId) {
+	private @Nullable GeneralDatumMetadata fetchMetadata(String sourceId) {
 		final String url = nodeSourceMetadataUrl(sourceId);
 		try {
 			final InputStream in = jsonGET(url);
@@ -522,7 +535,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		}
 	}
 
-	private GeneralDatumMetadata loadPersistedMetadata(String sourceId) {
+	private @Nullable GeneralDatumMetadata loadPersistedMetadata(String sourceId) {
 		final String sourceKey = DigestUtils.md5DigestAsHex(sourceId.getBytes(UTF_8));
 		try {
 			Iterable<Resource> resources = settingsService.getSettingResources(getSettingUid(), null,
@@ -534,7 +547,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 					Resource r = itr.next();
 					if ( r != null ) {
 						try (InputStream in = r.getInputStream()) {
-							return getObjectMapper().readValue(in, GeneralDatumMetadata.class);
+							return objectMapper().readValue(in, GeneralDatumMetadata.class);
 						}
 					}
 				}
@@ -547,11 +560,15 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		return legacyCachedMetadata(sourceId);
 	}
 
-	private GeneralDatumMetadata legacyCachedMetadata(String sourceId) {
-		String json = settingDao.getSetting(SETTING_KEY_SOURCE_META, sourceId);
+	private SettingDao settingDao() {
+		return ObjectUtils.nonnull(settingDao, "SettingDao");
+	}
+
+	private @Nullable GeneralDatumMetadata legacyCachedMetadata(String sourceId) {
+		String json = settingDao().getSetting(SETTING_KEY_SOURCE_META, sourceId);
 		if ( json != null ) {
 			try {
-				return getObjectMapper().readValue(json, GeneralDatumMetadata.class);
+				return objectMapper().readValue(json, GeneralDatumMetadata.class);
 			} catch ( IOException e ) {
 				log.debug("Error parsing cached metadata for source {}: {}", sourceId, e.getMessage());
 			}
@@ -610,14 +627,14 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	}
 
 	@Override
-	public ObjectDatumStreamMetadata getDatumStreamMetadata(ObjectDatumKind kind, Long objectId,
-			String sourceId) {
+	public @Nullable ObjectDatumStreamMetadata getDatumStreamMetadata(ObjectDatumKind kind,
+			Long objectId, String sourceId) {
 		if ( kind == null || sourceId == null || sourceId.isEmpty() ) {
 			return null;
 		} else if ( kind == ObjectDatumKind.Location && objectId == null ) {
 			return null;
 		} else if ( kind == ObjectDatumKind.Node ) {
-			objectId = getIdentityService().getNodeId();
+			objectId = nonnull(identityService().getNodeId(), "Node ID");
 		}
 		ObjectDatumStreamMetadataId id = new ObjectDatumStreamMetadataId(kind, objectId, sourceId);
 		CachedResult<ObjectDatumStreamMetadata> cached = datumStreamMetadata.get(id);
@@ -641,7 +658,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		return meta;
 	}
 
-	private ObjectDatumStreamMetadata fetchStreamMetadata(ObjectDatumStreamMetadataId id) {
+	private @Nullable ObjectDatumStreamMetadata fetchStreamMetadata(ObjectDatumStreamMetadataId id) {
 		final String url = streamMetadataUrl(id);
 		try {
 			final InputStream in = jsonGET(url);
@@ -666,8 +683,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 		if ( id.getKind() != null ) {
 			appendXWWWFormURLEncodedValue(buf, "kind", id.getKind().name());
 		}
-		return (getIdentityService().getSolarInBaseUrl() + baseUrl + '/' + id.getObjectId() + "/stream?"
-				+ buf);
+		return (solarInUrl() + baseUrl + '/' + id.getObjectId() + "/stream?" + buf);
 	}
 
 	/**
@@ -675,7 +691,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	 *
 	 * @return the settingDao the setting DAO
 	 */
-	public SettingDao getSettingDao() {
+	public @Nullable SettingDao getSettingDao() {
 		return settingDao;
 	}
 
@@ -690,7 +706,7 @@ public class JsonDatumMetadataService extends JsonHttpClientSupport
 	 * @param settingDao
 	 *        the settingDao to set
 	 */
-	public void setSettingDao(SettingDao settingDao) {
+	public void setSettingDao(@Nullable SettingDao settingDao) {
 		this.settingDao = settingDao;
 	}
 
