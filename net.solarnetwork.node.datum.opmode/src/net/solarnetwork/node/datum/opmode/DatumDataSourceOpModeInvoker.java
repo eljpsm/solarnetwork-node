@@ -1,21 +1,21 @@
 /* ==================================================================
  * DatumDataSourceOpModeInvoker.java - 20/12/2018 1:46:23 PM
- * 
+ *
  * Copyright 2018 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
@@ -64,7 +65,7 @@ import net.solarnetwork.util.ArrayUtils;
 /**
  * Poll a set of {@link DatumDataSource} services at a configurable frequency
  * when an operational mode is active.
- * 
+ *
  * <p>
  * This service is configured with a <em>target</em> operational mode and a set
  * of configurations that each define a source ID filter and associated
@@ -73,7 +74,7 @@ import net.solarnetwork.util.ArrayUtils;
  * passing all returned datum to {@link DatumQueue#offer(NodeDatum, boolean)}
  * with {@code persisted} set to {@literal false}.
  * </p>
- * 
+ *
  * @author matt
  * @version 2.0
  */
@@ -97,17 +98,17 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 	private final OptionalServiceCollection<DatumDataSource> dataSources;
 	private final OptionalServiceCollection<MultiDatumDataSource> multiDataSources;
 
-	private String operationalMode;
-	private TaskScheduler scheduler;
-	private DatumDataSourceScheduleConfig[] configurations;
-	private TaskExecutor taskExecutor;
+	private @Nullable String operationalMode;
+	private @Nullable TaskScheduler scheduler;
+	private DatumDataSourceScheduleConfig @Nullable [] configurations;
+	private @Nullable TaskExecutor taskExecutor;
 
 	private final ConcurrentMap<Integer, ScheduledDatumDataSourceConfig> activeConfigurations = new ConcurrentHashMap<>(
 			16, 0.9f, 1);
 
 	/**
 	 * Constructor.
-	 * 
+	 *
 	 * @param scheduler
 	 *        the task scheduler
 	 * @param opModesService
@@ -190,8 +191,9 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 
 	}
 
-	private synchronized void activate(DatumDataSourceScheduleConfig[] configs) {
-		if ( configs == null || configs.length < 1 ) {
+	private synchronized void activate(DatumDataSourceScheduleConfig @Nullable [] configs) {
+		final TaskScheduler scheduler = this.scheduler;
+		if ( configs == null || configs.length < 1 || scheduler == null ) {
 			return;
 		}
 		int i = 0;
@@ -206,10 +208,12 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 			if ( trigger != null ) {
 				ScheduledFuture<?> future = scheduler
 						.schedule(new DatumDataSourceInvokerJob(this, config), trigger);
-				activeConfigurations.put(++i, new ScheduledDatumDataSourceConfig(config, future));
-				log.info(
-						"Scheduled operational mode [{}] config {} data source collection using schedule [{}]",
-						operationalMode, i, schedule);
+				if ( future != null ) {
+					activeConfigurations.put(++i, new ScheduledDatumDataSourceConfig(config, future));
+					log.info(
+							"Scheduled operational mode [{}] config {} data source collection using schedule [{}]",
+							operationalMode, i, schedule);
+				}
 			}
 		}
 	}
@@ -221,7 +225,7 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 		activeConfigurations.clear();
 	}
 
-	private String displayNameForIdentifiable(Identifiable identifiable) {
+	private @Nullable String displayNameForIdentifiable(@Nullable Identifiable identifiable) {
 		return (identifiable != null && identifiable.getUid() != null && !identifiable.getUid().isEmpty()
 				? identifiable.getUid()
 				: identifiable != null ? identifiable.toString() : null);
@@ -245,8 +249,10 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 				log.trace("Inspecting DatumDataSource {} against config {}", dsName, config);
 				if ( config.matches(dataSource) ) {
 					NodeDatum datum = dataSource.readCurrentDatum();
-					log.debug("Invoked DatumDataSource {} and got {}", dsName, datum);
-					queue.offer(datum, persist);
+					if ( datum != null && queue != null ) {
+						log.debug("Invoked DatumDataSource {} and got {}", dsName, datum);
+						queue.offer(datum, persist);
+					}
 				}
 			}
 		}
@@ -261,7 +267,7 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 				if ( config.matches(dataSource) ) {
 					Collection<NodeDatum> datums = dataSource.readMultipleDatum();
 					log.debug("Invoked MultiDatumDataSource {} and got {}", dsName, datums);
-					if ( datums != null ) {
+					if ( datums != null && queue != null ) {
 						for ( NodeDatum datum : datums ) {
 							queue.offer(datum, persist);
 						}
@@ -295,7 +301,7 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 
 					@Override
 					public Collection<SettingSpecifier> mapListSettingKey(
-							DatumDataSourceScheduleConfig value, int index, String key) {
+							@Nullable DatumDataSourceScheduleConfig value, int index, String key) {
 						BasicGroupSettingSpecifier configGroup = new BasicGroupSettingSpecifier(
 								DatumDataSourceScheduleConfig.settings(key + "."));
 						return singletonList(configGroup);
@@ -314,85 +320,86 @@ public class DatumDataSourceOpModeInvoker extends BasicIdentifiable implements S
 
 	/**
 	 * Get the operational mode the settings apply to.
-	 * 
+	 *
 	 * @return the operational mode
 	 */
-	public String getOperationalMode() {
+	public final @Nullable String getOperationalMode() {
 		return operationalMode;
 	}
 
 	/**
 	 * Set the operational mode the settings apply to.
-	 * 
+	 *
 	 * @param operationalMode
 	 *        the operational mode
 	 */
-	public void setOperationalMode(String operationalMode) {
+	public final void setOperationalMode(@Nullable String operationalMode) {
 		this.operationalMode = operationalMode;
 	}
 
 	/**
 	 * Get the configurations to use.
-	 * 
+	 *
 	 * @return the configurations
 	 */
-	public synchronized DatumDataSourceScheduleConfig[] getConfigurations() {
+	public final synchronized DatumDataSourceScheduleConfig @Nullable [] getConfigurations() {
 		return configurations;
 	}
 
 	/**
 	 * Set the configurations to use.
-	 * 
+	 *
 	 * @param configurations
 	 *        the configurations
 	 */
-	public synchronized void setConfigurations(DatumDataSourceScheduleConfig[] configurations) {
+	public final synchronized void setConfigurations(
+			DatumDataSourceScheduleConfig @Nullable [] configurations) {
 		this.configurations = configurations;
 	}
 
 	/**
 	 * Get the number of configured {@code configurations} elements.
-	 * 
+	 *
 	 * @return the number of {@code configurations} elements
 	 */
-	public synchronized int getConfigurationsCount() {
+	public final synchronized int getConfigurationsCount() {
 		DatumDataSourceScheduleConfig[] confs = this.configurations;
 		return (confs == null ? 0 : confs.length);
 	}
 
 	/**
 	 * Adjust the number of configured {@code configuration} elements.
-	 * 
+	 *
 	 * <p>
 	 * Any newly added element values will be set to new
 	 * {@link DatumDataSourceScheduleConfig} instances.
 	 * </p>
-	 * 
+	 *
 	 * @param count
 	 *        The desired number of {@code configurations} elements.
 	 */
-	public synchronized void setConfigurationsCount(int count) {
+	public final synchronized void setConfigurationsCount(int count) {
 		this.configurations = ArrayUtils.arrayWithLength(this.configurations, count,
 				DatumDataSourceScheduleConfig.class, null);
 	}
 
 	/**
 	 * Set the Scheduler to use.
-	 * 
+	 *
 	 * @param scheduler
 	 *        The scheduler to use.
 	 */
-	public void setScheduler(TaskScheduler scheduler) {
+	public final void setScheduler(@Nullable TaskScheduler scheduler) {
 		this.scheduler = scheduler;
 	}
 
 	/**
 	 * An executor to handle events with.
-	 * 
+	 *
 	 * @param taskExecutor
 	 *        a task executor
 	 */
-	public void setTaskExecutor(TaskExecutor taskExecutor) {
+	public final void setTaskExecutor(@Nullable TaskExecutor taskExecutor) {
 		this.taskExecutor = taskExecutor;
 	}
 
