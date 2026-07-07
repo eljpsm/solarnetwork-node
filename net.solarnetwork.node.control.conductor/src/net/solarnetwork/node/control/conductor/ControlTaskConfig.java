@@ -1,21 +1,21 @@
 /* ==================================================================
  * ControlTaskConfig.java - 4/04/2023 9:03:29 am
- * 
+ *
  * Copyright 2023 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.expression.Expression;
 import net.solarnetwork.node.service.PlaceholderService;
 import net.solarnetwork.service.ExpressionService;
@@ -42,18 +43,18 @@ import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
 
 /**
  * A control-related task to perform a time offset from some execution date.
- * 
+ *
  * @author matt
  * @version 1.0
  */
 public class ControlTaskConfig {
 
-	private String controlId;
-	private String executionOffset;
-	private String value;
-	private String expressionServiceId;
+	private @Nullable String controlId;
+	private @Nullable String executionOffset;
+	private @Nullable String value;
+	private @Nullable String expressionServiceId;
 
-	private Expression cachedExpression;
+	private @Nullable Expression cachedExpression;
 
 	/**
 	 * Constructor.
@@ -64,7 +65,7 @@ public class ControlTaskConfig {
 
 	/**
 	 * Constructor.
-	 * 
+	 *
 	 * @param controlId
 	 *        the control ID
 	 * @param executionOffset
@@ -74,8 +75,8 @@ public class ControlTaskConfig {
 	 * @param expressionServiceId
 	 *        the expression service ID
 	 */
-	public ControlTaskConfig(String controlId, String executionOffset, String value,
-			String expressionServiceId) {
+	public ControlTaskConfig(@Nullable String controlId, @Nullable String executionOffset,
+			@Nullable String value, @Nullable String expressionServiceId) {
 		super();
 		this.controlId = controlId;
 		this.executionOffset = executionOffset;
@@ -85,7 +86,7 @@ public class ControlTaskConfig {
 
 	/**
 	 * Create new instance.
-	 * 
+	 *
 	 * @param controlId
 	 *        the control ID
 	 * @param executionOffset
@@ -94,13 +95,14 @@ public class ControlTaskConfig {
 	 *        the value
 	 * @return the new instance
 	 */
-	public static ControlTaskConfig taskConfig(String controlId, String executionOffset, String value) {
+	public static ControlTaskConfig taskConfig(@Nullable String controlId,
+			@Nullable String executionOffset, @Nullable String value) {
 		return new ControlTaskConfig(controlId, executionOffset, value, null);
 	}
 
 	/**
 	 * Create new instance.
-	 * 
+	 *
 	 * @param controlId
 	 *        the control ID
 	 * @param executionOffset
@@ -111,22 +113,23 @@ public class ControlTaskConfig {
 	 * @param expressionServiceId
 	 *        the expression service ID
 	 */
-	public static ControlTaskConfig taskConfig(String controlId, String executionOffset, String value,
-			String expressionServiceId) {
+	public static ControlTaskConfig taskConfig(@Nullable String controlId,
+			@Nullable String executionOffset, @Nullable String value,
+			@Nullable String expressionServiceId) {
 		return new ControlTaskConfig(controlId, executionOffset, value, expressionServiceId);
 	}
 
 	/**
 	 * Get settings suitable for configuring an instance of this class.
-	 * 
+	 *
 	 * @param prefix
 	 *        a setting key prefix to use
 	 * @param expressionServices
 	 *        the available expression services
-	 * @return the settings, never {@literal null}
+	 * @return the settings, never {@code null}
 	 */
 	public static List<SettingSpecifier> settings(String prefix,
-			Iterable<ExpressionService> expressionServices) {
+			@Nullable Iterable<ExpressionService> expressionServices) {
 		List<SettingSpecifier> results = new ArrayList<>(4);
 
 		results.add(new BasicTextFieldSettingSpecifier(prefix + "controlId", null));
@@ -159,7 +162,7 @@ public class ControlTaskConfig {
 
 	/**
 	 * Test if the configuration is valid.
-	 * 
+	 *
 	 * @return {@literal true} if the configuration is valid
 	 */
 	public boolean isValid() {
@@ -169,20 +172,19 @@ public class ControlTaskConfig {
 
 	/**
 	 * Get the execution time of this task, relative to a given start time.
-	 * 
+	 *
 	 * @param start
 	 *        the start time
 	 * @param placeholderService
 	 *        an optional service to resolve placeholders with
 	 * @param parameters
 	 *        optional parameters to pass to the placeholder service
-	 * @return the execution time for this task, or {@literal null} if
-	 *         {@code start} is {@literal null} or {@code executionOffset}
-	 *         cannot be parsed as a millisecond or {@link Duration} based
-	 *         offset
+	 * @return the execution time for this task, or {@code null} if
+	 *         {@code start} is {@code null} or {@code executionOffset} cannot
+	 *         be parsed as a millisecond or {@link Duration} based offset
 	 */
-	public Instant executionTime(Instant start, PlaceholderService placeholderService,
-			Map<String, ?> parameters) {
+	public @Nullable Instant executionTime(@Nullable Instant start,
+			@Nullable PlaceholderService placeholderService, Map<String, ?> parameters) {
 		if ( start == null || executionOffset == null ) {
 			return null;
 		}
@@ -208,25 +210,28 @@ public class ControlTaskConfig {
 	 * Get the appropriate {@link Expression} to use for the {@link #getValue()}
 	 * configuration, if {@link #getExpressionServiceId()} is configured and the
 	 * matching service is available.
-	 * 
+	 *
 	 * @param services
 	 *        the available services
-	 * @return the expression instance, or {@literal null} if no expression
+	 * @return the expression instance, or {@code null} if no expression
 	 *         configured or the appropriate service is not found
 	 */
-	public synchronized ExpressionServiceExpression valueExpression(
-			Iterable<ExpressionService> services) {
+	public synchronized @Nullable ExpressionServiceExpression valueExpression(
+			@Nullable Iterable<ExpressionService> services) {
 		final String serviceId = getExpressionServiceId();
-		if ( serviceId == null ) {
+		if ( serviceId == null || services == null ) {
 			return null;
 		}
 		for ( ExpressionService service : services ) {
-			if ( service != null && service.getUid().equalsIgnoreCase(serviceId) ) {
+			if ( service != null && serviceId.equalsIgnoreCase(service.getUid()) ) {
 				Expression expr = cachedExpression;
 				if ( expr == null ) {
-					expr = service.parseExpression(getValue());
-					if ( expr != null ) {
-						cachedExpression = expr;
+					final String value = getValue();
+					if ( value != null ) {
+						expr = service.parseExpression(value);
+						if ( expr != null ) {
+							cachedExpression = expr;
+						}
 					}
 				}
 				if ( expr != null ) {
@@ -239,63 +244,63 @@ public class ControlTaskConfig {
 
 	/**
 	 * Get the control ID.
-	 * 
+	 *
 	 * @return the control ID
 	 */
-	public String getControlId() {
+	public final @Nullable String getControlId() {
 		return controlId;
 	}
 
 	/**
 	 * Set the control ID.
-	 * 
+	 *
 	 * @param controlId
 	 *        the control ID to set
 	 */
-	public void setControlId(String controlId) {
+	public final void setControlId(@Nullable String controlId) {
 		this.controlId = controlId;
 	}
 
 	/**
 	 * Get the execution time offset.
-	 * 
+	 *
 	 * @return the time offset
 	 */
-	public String getExecutionOffset() {
+	public final @Nullable String getExecutionOffset() {
 		return executionOffset;
 	}
 
 	/**
 	 * Set the execution time offset.
-	 * 
+	 *
 	 * @param executionOffset
 	 *        the offset to set; can be an ISO 8601 period (for example
 	 *        {@literal PT1H} or an integer millisecond value, both supporting a
 	 *        {@code -} prefix for negation
 	 * @see Duration#parse(CharSequence)
 	 */
-	public void setExecutionOffset(String executionOffset) {
+	public final void setExecutionOffset(@Nullable String executionOffset) {
 		this.executionOffset = executionOffset;
 	}
 
 	/**
 	 * Get the desired control value.
-	 * 
+	 *
 	 * @return the value; if {@link #getExpressionServiceId()} is configured
 	 *         this value is assumed to be an expression
 	 */
-	public String getValue() {
+	public final @Nullable String getValue() {
 		return value;
 	}
 
 	/**
 	 * Set the desired control value.
-	 * 
+	 *
 	 * @param value
 	 *        the value to set; if {@link #getExpressionServiceId()} is
 	 *        configured this value is assumed to be an expression
 	 */
-	public void setValue(String value) {
+	public final void setValue(@Nullable String value) {
 		this.value = value;
 		this.cachedExpression = null;
 	}
@@ -303,21 +308,21 @@ public class ControlTaskConfig {
 	/**
 	 * Get the {@link ExpressionService} ID to use when evaluating
 	 * {@link #getValue()}.
-	 * 
+	 *
 	 * @return the service ID
 	 */
-	public String getExpressionServiceId() {
+	public final @Nullable String getExpressionServiceId() {
 		return expressionServiceId;
 	}
 
 	/**
 	 * Set the {@link ExpressionService} ID to use when evaluating
 	 * {@link #getValue()}.
-	 * 
+	 *
 	 * @param expressionServiceId
-	 *        the service ID, or {@literal null} to not evaluate
+	 *        the service ID, or {@code null} to not evaluate
 	 */
-	public synchronized void setExpressionServiceId(String expressionServiceId) {
+	public final synchronized void setExpressionServiceId(@Nullable String expressionServiceId) {
 		this.expressionServiceId = expressionServiceId;
 		this.cachedExpression = null;
 	}

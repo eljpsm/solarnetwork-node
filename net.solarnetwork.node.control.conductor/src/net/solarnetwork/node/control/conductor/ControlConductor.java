@@ -30,12 +30,11 @@ import static net.solarnetwork.service.OptionalServiceCollection.services;
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.domain.InstructionStatus.InstructionState;
 import net.solarnetwork.node.domain.ExpressionRoot;
 import net.solarnetwork.node.reactor.Instruction;
@@ -80,9 +79,9 @@ public class ControlConductor extends BaseIdentifiable
 
 	private final OptionalService<ReactorService> reactorService;
 	private final OptionalService<InstructionExecutionService> instructionService;
-	private OptionalService<DatumService> datumService;
-	private OptionalService<OperationalModesService> opModesService;
-	private ControlTaskConfig[] taskConfigs;
+	private @Nullable OptionalService<DatumService> datumService;
+	private @Nullable OptionalService<OperationalModesService> opModesService;
+	private ControlTaskConfig @Nullable [] taskConfigs;
 
 	/**
 	 * Constructor.
@@ -92,7 +91,7 @@ public class ControlConductor extends BaseIdentifiable
 	 * @param instructionService
 	 *        the instruction execution service
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public ControlConductor(OptionalService<ReactorService> reactorService,
 			OptionalService<InstructionExecutionService> instructionService) {
@@ -102,20 +101,22 @@ public class ControlConductor extends BaseIdentifiable
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return TOPIC_ORCHESTRATE_CONTROLS.equals(topic) || TOPIC_SIGNAL.equals(topic);
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
 		if ( instruction == null ) {
 			return null;
 		}
-		if ( !handlesTopic(instruction.getTopic()) ) {
+		final String topic = instruction.getTopic();
+
+		if ( topic == null || !handlesTopic(topic) ) {
 			return null;
 		}
 
-		if ( TOPIC_ORCHESTRATE_CONTROLS.equals(instruction.getTopic()) ) {
+		if ( TOPIC_ORCHESTRATE_CONTROLS.equals(topic) ) {
 			return handleOrchestrateControlsInstruction(instruction);
 		}
 
@@ -123,10 +124,11 @@ public class ControlConductor extends BaseIdentifiable
 
 	}
 
-	private InstructionStatus handleOrchestrateControlsInstruction(Instruction instruction) {
+	private @Nullable InstructionStatus handleOrchestrateControlsInstruction(Instruction instruction) {
 		// the "service" parameter must much our UID
-		String service = instruction.getParameterValue(PARAM_SERVICE);
-		if ( service == null || !service.equalsIgnoreCase(getUid()) ) {
+		final String service = instruction.getParameterValue(PARAM_SERVICE);
+		final String uid = getUid();
+		if ( uid == null || service == null || !service.equalsIgnoreCase(uid) ) {
 			return null;
 		}
 
@@ -166,7 +168,7 @@ public class ControlConductor extends BaseIdentifiable
 					instruction.getInstructorId());
 			taskInstructionParams.put(Instruction.PARAM_EXECUTION_DATE,
 					String.valueOf(taskDate.toEpochMilli()));
-			taskInstructionParams.put(getUid(), String.valueOf(taskIndex));
+			taskInstructionParams.put(uid, String.valueOf(taskIndex));
 
 			Instruction taskInstr = InstructionUtils.createLocalInstruction(TOPIC_SIGNAL,
 					taskInstructionParams);
@@ -183,8 +185,8 @@ public class ControlConductor extends BaseIdentifiable
 		for ( Instruction taskInstruction : taskInstructions ) {
 			taskIndex += 1;
 			log.info("Scheduling {} instruction on behalf of {} instruction [{}] task [{}.{}] @ {}",
-					TOPIC_SIGNAL, instruction.getTopic(), instruction.getIdentifier(), getUid(),
-					taskIndex, taskInstruction.getExecutionDate());
+					TOPIC_SIGNAL, instruction.getTopic(), instruction.getIdentifier(), uid, taskIndex,
+					taskInstruction.getExecutionDate());
 
 			rs.storeInstruction(taskInstruction);
 		}
@@ -193,9 +195,14 @@ public class ControlConductor extends BaseIdentifiable
 				createErrorResultParameters(format("Scheduled %d control tasks.", taskIndex), null));
 	}
 
-	private InstructionStatus handleSignalInstruction(Instruction instruction) {
-		final String taskId = instruction.getParameterValue(getUid());
-		final String taskIdentifier = format("%s.%s", getUid(), taskId);
+	private @Nullable InstructionStatus handleSignalInstruction(Instruction instruction) {
+		final String uid = getUid();
+		final ControlTaskConfig[] taskConfigs = getTaskConfigs();
+		if ( uid == null || taskConfigs == null ) {
+			return null;
+		}
+		final String taskId = instruction.getParameterValue(uid);
+		final String taskIdentifier = format("%s.%s", uid, taskId);
 
 		int taskIndex;
 		try {
@@ -285,22 +292,21 @@ public class ControlConductor extends BaseIdentifiable
 
 	@Override
 	public List<SettingSpecifier> getSettingSpecifiers() {
-		List<SettingSpecifier> result = new ArrayList<SettingSpecifier>();
+		List<SettingSpecifier> result = new ArrayList<>();
 		result.addAll(baseIdentifiableSettings(""));
 
 		ControlTaskConfig[] confs = getTaskConfigs();
-		List<ControlTaskConfig> confsList = (confs != null ? Arrays.asList(confs)
-				: Collections.emptyList());
+		List<ControlTaskConfig> confsList = (confs != null ? List.of(confs) : List.of());
 		result.add(SettingUtils.dynamicListSettingSpecifier("taskConfigs", confsList,
 				new SettingUtils.KeyedListCallback<ControlTaskConfig>() {
 
 					@Override
-					public Collection<SettingSpecifier> mapListSettingKey(ControlTaskConfig value,
-							int index, String key) {
+					public Collection<SettingSpecifier> mapListSettingKey(
+							@Nullable ControlTaskConfig value, int index, String key) {
 						BasicGroupSettingSpecifier configGroup = new BasicGroupSettingSpecifier(
 								ControlTaskConfig.settings(key + ".",
 										services(getExpressionServices())));
-						return Collections.singletonList(configGroup);
+						return List.of(configGroup);
 					}
 				}));
 
@@ -312,7 +318,7 @@ public class ControlConductor extends BaseIdentifiable
 	 *
 	 * @return the configurations
 	 */
-	public ControlTaskConfig[] getTaskConfigs() {
+	public final ControlTaskConfig @Nullable [] getTaskConfigs() {
 		return taskConfigs;
 	}
 
@@ -322,7 +328,7 @@ public class ControlConductor extends BaseIdentifiable
 	 * @param taskConfigs
 	 *        the configurations to set
 	 */
-	public void setTaskConfigs(ControlTaskConfig[] taskConfigs) {
+	public final void setTaskConfigs(ControlTaskConfig @Nullable [] taskConfigs) {
 		this.taskConfigs = taskConfigs;
 	}
 
@@ -331,7 +337,7 @@ public class ControlConductor extends BaseIdentifiable
 	 *
 	 * @return the number of {@code taskConfigs} elements
 	 */
-	public int getTaskConfigsCount() {
+	public final int getTaskConfigsCount() {
 		ControlTaskConfig[] confs = this.taskConfigs;
 		return (confs == null ? 0 : confs.length);
 	}
@@ -347,7 +353,7 @@ public class ControlConductor extends BaseIdentifiable
 	 * @param count
 	 *        The desired number of {@code taskConfigs} elements.
 	 */
-	public void setTaskConfigsCount(int count) {
+	public final void setTaskConfigsCount(int count) {
 		this.taskConfigs = ArrayUtils.arrayWithLength(this.taskConfigs, count, ControlTaskConfig.class,
 				null);
 	}
@@ -357,7 +363,7 @@ public class ControlConductor extends BaseIdentifiable
 	 *
 	 * @return the datum service
 	 */
-	public OptionalService<DatumService> getDatumService() {
+	public final @Nullable OptionalService<DatumService> getDatumService() {
 		return datumService;
 	}
 
@@ -367,7 +373,7 @@ public class ControlConductor extends BaseIdentifiable
 	 * @param datumService
 	 *        the datum service
 	 */
-	public void setDatumService(OptionalService<DatumService> datumService) {
+	public final void setDatumService(@Nullable OptionalService<DatumService> datumService) {
 		this.datumService = datumService;
 	}
 
@@ -376,7 +382,7 @@ public class ControlConductor extends BaseIdentifiable
 	 *
 	 * @return the opModesService
 	 */
-	public OptionalService<OperationalModesService> getOpModesService() {
+	public final @Nullable OptionalService<OperationalModesService> getOpModesService() {
 		return opModesService;
 	}
 
@@ -386,7 +392,8 @@ public class ControlConductor extends BaseIdentifiable
 	 * @param opModesService
 	 *        the opModesService to set
 	 */
-	public void setOpModesService(OptionalService<OperationalModesService> opModesService) {
+	public final void setOpModesService(
+			@Nullable OptionalService<OperationalModesService> opModesService) {
 		this.opModesService = opModesService;
 	}
 
