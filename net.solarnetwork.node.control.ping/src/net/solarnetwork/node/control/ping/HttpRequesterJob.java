@@ -1,21 +1,21 @@
 /* ==================================================================
  * HttpRequesterJob.java - Jul 20, 2013 5:58:39 PM
- * 
+ *
  * Copyright 2007-2013 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Scanner;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSocketFactory;
-import org.springframework.context.MessageSource;
+import org.jspecify.annotations.Nullable;
 import net.solarnetwork.domain.InstructionStatus.InstructionState;
 import net.solarnetwork.node.job.JobService;
 import net.solarnetwork.node.reactor.Instruction;
@@ -56,7 +56,7 @@ import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
 /**
  * Make a HTTP request to test for network connectivity, and toggle a control
  * value when connectivity lost.
- * 
+ *
  * <p>
  * The idea behind this class is to test for network reachability of a
  * configured HTTP URL. If the URL cannot be reached, the configured control
@@ -64,7 +64,7 @@ import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
  * setting the control back to the opposite of {@code failedToggleValue}. The
  * control might cycle the power of a mobile modem, for example.
  * </p>
- * 
+ *
  * <p>
  * Alternatively, or in addition to to, toggling a control two OS-specific
  * commands can be executed if the URL cannot be reached. The
@@ -72,7 +72,7 @@ import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
  * followed by the configured pause, followed by the {@code osCommandToggleOn}
  * command.
  * </p>
- * 
+ *
  * <p>
  * If an {@link OperationalModesService} is configured, then two operational
  * modes can be managed as well, one representing successful network
@@ -80,7 +80,7 @@ import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
  * {@link #getSuccessOpMode()} and {@link #getFailOpMode()} modes will be
  * toggled on/off appropriately.
  * </p>
- * 
+ *
  * @author matt
  * @version 3.1
  */
@@ -89,7 +89,7 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 	/**
 	 * The {@literal service} instruction parameter value for WiFi
 	 * configuration.
-	 * 
+	 *
 	 * @since 2.1
 	 */
 	public static final String PING_SERVICE_NAME = "/setup/network/ping";
@@ -108,20 +108,26 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 
 	public static final String DEFAULT_FAILURE_OP_MODE = "net-offline";
 
-	private String controlId;
-	private String osCommandToggleOff;
-	private String osCommandToggleOn;
+	private @Nullable String controlId;
+	private @Nullable String osCommandToggleOff;
+	private @Nullable String osCommandToggleOn;
 	private int osCommandSleepSeconds = DEFAULT_OS_COMMAND_SLEEP_SECONDS;
 	private boolean failedToggleValue = DEFAULT_FAILED_TOGGLE_VALUE;
 	private int sleepSeconds = DEFAULT_SLEEP_SECONDS;
 	private int connectionTimeoutSeconds = DEFAULT_CONNECTION_TIMEOUT_SECONDS;
 	private String url = DEFAULT_URL;
-	private MessageSource messageSource;
-	private OptionalService<InstructionExecutionService> instructionExecutionService;
-	private OptionalService<SSLService> sslService;
-	private OptionalService<OperationalModesService> opModesService;
-	private String successOpMode = DEFAULT_SUCCESS_OP_MODE;
-	private String failOpMode = DEFAULT_FAILURE_OP_MODE;
+	private @Nullable OptionalService<InstructionExecutionService> instructionExecutionService;
+	private @Nullable OptionalService<SSLService> sslService;
+	private @Nullable OptionalService<OperationalModesService> opModesService;
+	private @Nullable String successOpMode = DEFAULT_SUCCESS_OP_MODE;
+	private @Nullable String failOpMode = DEFAULT_FAILURE_OP_MODE;
+
+	/**
+	 * Constructor.
+	 */
+	public HttpRequesterJob() {
+		super();
+	}
 
 	@Override
 	public void executeJobService() throws Exception {
@@ -182,12 +188,12 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 	}
 
 	@Override
-	public boolean handlesTopic(String topic) {
+	public boolean handlesTopic(@Nullable String topic) {
 		return InstructionHandler.TOPIC_SYSTEM_CONFIGURE.equals(topic);
 	}
 
 	@Override
-	public InstructionStatus processInstruction(Instruction instruction) {
+	public @Nullable InstructionStatus processInstruction(Instruction instruction) {
 		final String serviceName = serviceName();
 		if ( instruction == null || !handlesTopic(instruction.getTopic())
 				|| !serviceName.equals(instruction.getParameterValue(PARAM_SERVICE)) ) {
@@ -197,11 +203,11 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 		try {
 			int responseCode = doPing();
 			if ( isResponseCodeOk(responseCode) ) {
-				resultParams.put(PARAM_MESSAGE, getMessageSource().getMessage("ping.success.msg",
+				resultParams.put(PARAM_MESSAGE, messageSource().getMessage("ping.success.msg",
 						new Object[] { url }, "Connection success.", Locale.getDefault()));
 			} else {
 				resultParams.put(PARAM_MESSAGE,
-						getMessageSource().getMessage("ping.errorStatus.msg",
+						messageSource().getMessage("ping.errorStatus.msg",
 								new Object[] { responseCode, url }, "Error status returned.",
 								Locale.getDefault()));
 				resultParams.put(PARAM_SERVICE_RESULT, responseCode);
@@ -211,7 +217,7 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 			while ( root.getCause() != null ) {
 				root = root.getCause();
 			}
-			resultParams.put(PARAM_MESSAGE, getMessageSource().getMessage("ping.error.msg",
+			resultParams.put(PARAM_MESSAGE, messageSource().getMessage("ping.error.msg",
 					new Object[] { url, root.toString() }, "Error connecting.", Locale.getDefault()));
 			resultParams.put(PARAM_SERVICE_RESULT, -1);
 		}
@@ -227,7 +233,7 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 		return PING_SERVICE_NAME;
 	}
 
-	private void handleOSCommand(String command) {
+	private void handleOSCommand(@Nullable String command) {
 		if ( command == null ) {
 			return;
 		}
@@ -330,8 +336,12 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 		return connection.getResponseCode();
 	}
 
-	private InstructionState toggleControl(final InstructionExecutionService service,
+	private @Nullable InstructionState toggleControl(final InstructionExecutionService service,
 			final boolean value) {
+		final String controlId = this.controlId;
+		if ( controlId == null ) {
+			return null;
+		}
 		final Instruction instr = InstructionUtils.createSetControlValueLocalInstruction(controlId,
 				String.valueOf(value));
 		InstructionStatus result = null;
@@ -387,24 +397,14 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 		return results;
 	}
 
-	@Override
-	public void setMessageSource(MessageSource messageSource) {
-		this.messageSource = messageSource;
-	}
-
-	@Override
-	public MessageSource getMessageSource() {
-		return messageSource;
-	}
-
 	/**
 	 * Get this class as an instruction handler.
-	 * 
+	 *
 	 * <p>
 	 * This method exists to support registering this class via the dynamic
 	 * service provider API.
 	 * </p>
-	 * 
+	 *
 	 * @return this instance
 	 */
 	public InstructionHandler getInstructionHandler() {
@@ -413,21 +413,21 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 
 	/**
 	 * Get the ID of the boolean control to toggle.
-	 * 
+	 *
 	 * @return the control ID to toggle
 	 */
-	public String getControlId() {
+	public final @Nullable String getControlId() {
 		return controlId;
 	}
 
 	/**
 	 * Set the ID of the boolean control to toggle.
-	 * 
+	 *
 	 * @param value
 	 *        the control ID to toggle, or {@literal null} to not toggle any
 	 *        control
 	 */
-	public void setControlId(String value) {
+	public final void setControlId(@Nullable String value) {
 		if ( value != null && value.length() < 1 ) {
 			value = null;
 		}
@@ -437,89 +437,89 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 	/**
 	 * Get the number of seconds to wait after toggling the control to
 	 * {@literal false} before toggling the control back to {@literal true}.
-	 * 
+	 *
 	 * @return the sleep seconds to set; defaults to
 	 *         {@link #DEFAULT_SLEEP_SECONDS}
 	 */
-	public int getSleepSeconds() {
+	public final int getSleepSeconds() {
 		return sleepSeconds;
 	}
 
 	/**
 	 * Set the number of seconds to wait after toggling the control to
 	 * {@literal false} before toggling the control back to {@literal true}.
-	 * 
+	 *
 	 * @param sleepSeconds
 	 *        the sleep seconds to set
 	 */
-	public void setSleepSeconds(int sleepSeconds) {
+	public final void setSleepSeconds(int sleepSeconds) {
 		this.sleepSeconds = sleepSeconds;
 	}
 
 	/**
 	 * Get the URL to attempt to reach.
-	 * 
+	 *
 	 * @return the URL
 	 */
-	public String getUrl() {
+	public final String getUrl() {
 		return url;
 	}
 
 	/**
 	 * Set the URL to attempt to reach.
-	 * 
+	 *
 	 * <p>
 	 * This must be a HTTP URL that accepts {@code HEAD} requests. When this job
 	 * executes, it will make a HTTP HEAD request to this URL, and will be
 	 * considered successful only if the HTTP response status code is between
 	 * <b>200 - 399</b>.
 	 * </p>
-	 * 
+	 *
 	 * @param url
-	 *        the URL
+	 *        the URL; if {@code null} then {@link #DEFAULT_URL} will be used
 	 */
-	public void setUrl(String url) {
-		this.url = url;
+	public final void setUrl(String url) {
+		this.url = (url != null ? url : DEFAULT_URL);
 	}
 
 	/**
 	 * Get the number of seconds to wait for the network connection request to
 	 * return a result.
-	 * 
+	 *
 	 * @return the connection timeout seconds; defaults to
 	 *         {@link #DEFAULT_CONNECTION_TIMEOUT_SECONDS}
 	 */
-	public int getConnectionTimeoutSeconds() {
+	public final int getConnectionTimeoutSeconds() {
 		return connectionTimeoutSeconds;
 	}
 
 	/**
 	 * Set the number of seconds to wait for the network connection request to
 	 * return a result.
-	 * 
+	 *
 	 * @param connectionTimeout
 	 *        the timeout to set
 	 */
-	public void setConnectionTimeoutSeconds(int connectionTimeout) {
+	public final void setConnectionTimeoutSeconds(int connectionTimeout) {
 		this.connectionTimeoutSeconds = connectionTimeout;
 	}
 
 	/**
 	 * Get an OS-specific command to run after the URL cannot be reached.
-	 * 
+	 *
 	 * @return the OS command to execute after a reachability failure
 	 */
-	public String getOsCommandToggleOff() {
+	public final @Nullable String getOsCommandToggleOff() {
 		return osCommandToggleOff;
 	}
 
 	/**
 	 * Set an OS-specific command to run after the URL cannot be reached.
-	 * 
+	 *
 	 * @param value
 	 *        the OS command to execute after a reachability failure
 	 */
-	public void setOsCommandToggleOff(String value) {
+	public final void setOsCommandToggleOff(@Nullable String value) {
 		if ( value != null && value.length() < 1 ) {
 			value = null;
 		}
@@ -529,23 +529,23 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 	/**
 	 * Get an OS-specific command to run after the URL was not reached and the
 	 * configured pause time has elapsed.
-	 * 
+	 *
 	 * @return the OS command to execute after a reachability failure and pause
 	 *         time
 	 */
-	public String getOsCommandToggleOn() {
+	public final @Nullable String getOsCommandToggleOn() {
 		return osCommandToggleOn;
 	}
 
 	/**
 	 * Set an OS-specific command to run after the URL was not reached and the
 	 * configured pause time has elapsed.
-	 * 
+	 *
 	 * @param value
 	 *        the OS command to execute after a reachability failure and pause
 	 *        time
 	 */
-	public void setOsCommandToggleOn(String value) {
+	public final void setOsCommandToggleOn(@Nullable String value) {
 		if ( value != null && value.length() < 1 ) {
 			value = null;
 		}
@@ -554,147 +554,148 @@ public class HttpRequesterJob extends BaseIdentifiable implements JobService, In
 
 	/**
 	 * Get the failed toggle flag.
-	 * 
+	 *
 	 * @return {@literal true} if upon a reachability failure the configured
 	 *         control should be toggled on/off; defaults to
 	 *         {@link #DEFAULT_FAILED_TOGGLE_VALUE}
 	 */
-	public boolean isFailedToggleValue() {
+	public final boolean isFailedToggleValue() {
 		return failedToggleValue;
 	}
 
 	/**
 	 * Set the failed toggle flag.
-	 * 
+	 *
 	 * @param failedToggleValue
 	 *        {@literal true} if upon a reachability failure the configured
 	 *        control should be toggled on/off
 	 */
-	public void setFailedToggleValue(boolean failedToggleValue) {
+	public final void setFailedToggleValue(boolean failedToggleValue) {
 		this.failedToggleValue = failedToggleValue;
 	}
 
 	/**
 	 * Get the number of seconds to sleep after successfully executing either
 	 * the {@code osCommandToggleOn} or {@code osCommandToggleOff} commands.
-	 * 
+	 *
 	 * @return the seconds; defaults to
 	 *         {@link #DEFAULT_OS_COMMAND_SLEEP_SECONDS}
 	 */
-	public int getOsCommandSleepSeconds() {
+	public final int getOsCommandSleepSeconds() {
 		return osCommandSleepSeconds;
 	}
 
 	/**
 	 * Set the number of seconds to sleep after successfully executing either
 	 * the {@code osCommandToggleOn} or {@code osCommandToggleOff} commands.
-	 * 
+	 *
 	 * @param osCommandSleepSeconds
 	 *        the seconds
 	 */
-	public void setOsCommandSleepSeconds(int osCommandSleepSeconds) {
+	public final void setOsCommandSleepSeconds(int osCommandSleepSeconds) {
 		this.osCommandSleepSeconds = osCommandSleepSeconds;
 	}
 
 	/**
 	 * Get the instruction execution service.
-	 * 
+	 *
 	 * @return the service
 	 */
-	public OptionalService<InstructionExecutionService> getInstructionExecutionService() {
+	public final @Nullable OptionalService<InstructionExecutionService> getInstructionExecutionService() {
 		return instructionExecutionService;
 	}
 
 	/**
 	 * Set the instruction execution service.
-	 * 
+	 *
 	 * @param instructionExecutionService
 	 *        the service to set
 	 */
-	public void setInstructionExecutionService(
-			OptionalService<InstructionExecutionService> instructionExecutionService) {
+	public final void setInstructionExecutionService(
+			@Nullable OptionalService<InstructionExecutionService> instructionExecutionService) {
 		this.instructionExecutionService = instructionExecutionService;
 	}
 
 	/**
 	 * Get the SSL service.
-	 * 
+	 *
 	 * @return the service
 	 */
-	public OptionalService<SSLService> getSslService() {
+	public final @Nullable OptionalService<SSLService> getSslService() {
 		return sslService;
 	}
 
 	/**
 	 * Set the SSL service.
-	 * 
+	 *
 	 * @param sslService
 	 *        the service to set
 	 */
-	public void setSslService(OptionalService<SSLService> sslService) {
+	public final void setSslService(@Nullable OptionalService<SSLService> sslService) {
 		this.sslService = sslService;
 	}
 
 	/**
 	 * Set the operational modes service.
-	 * 
+	 *
 	 * @return the service
 	 * @since 3.1
 	 */
-	public OptionalService<OperationalModesService> getOpModesService() {
+	public final @Nullable OptionalService<OperationalModesService> getOpModesService() {
 		return opModesService;
 	}
 
 	/**
 	 * Get the operational modes service.
-	 * 
+	 *
 	 * @param opModesService
 	 *        the service to set
 	 * @since 3.1
 	 */
-	public void setOpModesService(OptionalService<OperationalModesService> opModesService) {
+	public final void setOpModesService(
+			@Nullable OptionalService<OperationalModesService> opModesService) {
 		this.opModesService = opModesService;
 	}
 
 	/**
 	 * Get the success operational mode to use.
-	 * 
+	 *
 	 * @return the mode
 	 * @since 3.1
 	 */
-	public String getSuccessOpMode() {
+	public final @Nullable String getSuccessOpMode() {
 		return successOpMode;
 	}
 
 	/**
 	 * Set the success operational mode to use.
-	 * 
+	 *
 	 * @param successOpMode
 	 *        the mode to set
 	 * @since 3.1
 	 */
-	public void setSuccessOpMode(String successOpMode) {
+	public final void setSuccessOpMode(@Nullable String successOpMode) {
 		this.successOpMode = successOpMode;
 	}
 
 	/**
 	 * Get the failure operational mode to use.
-	 * 
+	 *
 	 * @return the mode
 	 * @since 3.1
 	 */
-	public String getFailOpMode() {
+	public final @Nullable String getFailOpMode() {
 		return failOpMode;
 	}
 
 	/**
 	 * Set the failure operational mode to use.
-	 * 
+	 *
 	 * @param failOpMode
 	 *        the mode to set
 	 * @since 3.1
 	 */
-	public void setFailOpMode(String failOpMode) {
+	public final void setFailOpMode(@Nullable String failOpMode) {
 		this.failOpMode = failOpMode;
 	}
 
