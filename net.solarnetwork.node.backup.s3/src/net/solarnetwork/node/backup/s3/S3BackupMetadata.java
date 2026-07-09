@@ -29,7 +29,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import net.solarnetwork.common.s3.S3ObjectReference;
 import net.solarnetwork.node.backup.Backup;
@@ -40,7 +42,7 @@ import net.solarnetwork.node.backup.BackupResource;
  * S3 implementation of {@link Backup}.
  *
  * @author matt
- * @version 1.1
+ * @version 1.2
  */
 @JsonPropertyOrder({ "key", "nodeId", "date", "qualifier", "size", "complete" })
 @JsonIgnoreProperties({ "id" })
@@ -64,7 +66,8 @@ public class S3BackupMetadata implements Backup {
 	 * @throws IllegalArgumentException
 	 *         if any argument is {@code null}
 	 */
-	public S3BackupMetadata(String key, Date date) {
+	@JsonCreator
+	public S3BackupMetadata(@JsonProperty("key") String key, @JsonProperty("date") Date date) {
 		this.key = requireNonNullArgument(key, "key");
 		this.date = requireNonNullArgument(date, "date");
 	}

@@ -23,6 +23,8 @@
 package net.solarnetwork.node.backup.s3.test;
 
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.BDDAssertions.from;
+import static org.assertj.core.api.BDDAssertions.then;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -68,6 +70,39 @@ public class S3BackupMetadataTests {
 		assertThat("JSON generated", json, is(equalTo("""
 				{"key":"%s","nodeId":%d,"date":%d,"complete":%s}""".formatted(backup.getKey(),
 				backup.getNodeId(), backup.getDate().getTime(), backup.isComplete()))));
+	}
+
+	@Test
+	public void fromJson() throws IOException {
+		// GIVEN
+		final Instant ts = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+		final DateTimeFormatter dateFmt = DateTimeFormatter
+				.ofPattern(BackupServiceSupport.BACKUP_KEY_DATE_FORMAT).withZone(UTC);
+		final String key = "node-2-backup-%s".formatted(dateFmt.format(ts));
+		final Long nodeId = 2L;
+		final String json = """
+				{"key":"%s","nodeId":%d,"date":%d,"complete":%s}""".formatted(key, nodeId,
+				ts.toEpochMilli(), true);
+
+		// WHEN
+		S3BackupMetadata result = MAPPER.readValue(json, S3BackupMetadata.class);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("JSON parsed")
+			.isNotNull()
+			.as("Key parsed")
+			.returns(key, from(S3BackupMetadata::getKey))
+			.as("Node ID parsed")
+			.returns(nodeId, from(S3BackupMetadata::getNodeId))
+			.as("Date parsed")
+			.returns(Date.from(ts), from(S3BackupMetadata::getDate))
+			.as("Complete flag parsed")
+			.returns(true, from(S3BackupMetadata::isComplete))
+			;
+		// @formatter:on
+
 	}
 
 }
