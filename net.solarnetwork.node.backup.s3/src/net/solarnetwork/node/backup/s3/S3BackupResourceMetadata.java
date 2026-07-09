@@ -24,6 +24,9 @@ package net.solarnetwork.node.backup.s3;
 
 import static net.solarnetwork.util.ObjectUtils.requireNonNullArgument;
 import org.jspecify.annotations.Nullable;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Metadata on a single backup resource within a backup.
@@ -31,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * @author matt
  * @version 1.1
  */
+@JsonPropertyOrder({ "backupPath", "providerKey", "objectKey", "modificationDate", "digest" })
 public class S3BackupResourceMetadata {
 
 	private final String backupPath;
@@ -55,8 +59,16 @@ public class S3BackupResourceMetadata {
 	 * @throws IllegalArgumentException
 	 *         if any argument except {@code digest} is {@code null}
 	 */
-	public S3BackupResourceMetadata(String backupPath, long modificationDate, String providerKey,
-			String objectKey, @Nullable String digest) {
+	@JsonCreator
+	public S3BackupResourceMetadata(
+	// @formatter:off
+			@JsonProperty("backupPath") String backupPath,
+			@JsonProperty("modificationDate") long modificationDate,
+			@JsonProperty("providerKey") String providerKey,
+			@JsonProperty("objectKey") String objectKey,
+			@JsonProperty(value = "digest", required = false) @Nullable String digest
+			// @formatter:on
+	) {
 		super();
 		this.backupPath = requireNonNullArgument(backupPath, "backupPath");
 		this.modificationDate = modificationDate;
