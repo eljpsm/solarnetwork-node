@@ -104,8 +104,7 @@ public class PropertyDatumFilterService extends DatumFilterSupport
 		// load all Datum "last created" settings, if we need to throttle by frequency
 		final ConcurrentMap<String, Instant> lastSeenMap = transientSettings(settingKey);
 
-		final Instant now = (datum != null && datum.getTimestamp() != null ? datum.getTimestamp()
-				: Instant.now());
+		final Instant now = (datum.getTimestamp() != null ? datum.getTimestamp() : Instant.now());
 		log.trace(
 				"Property filter [{}] examining datum {} @ {} with {} include and {} exclude configurations",
 				getUid(), datum, now, (incs != null ? incs.length : 0),
