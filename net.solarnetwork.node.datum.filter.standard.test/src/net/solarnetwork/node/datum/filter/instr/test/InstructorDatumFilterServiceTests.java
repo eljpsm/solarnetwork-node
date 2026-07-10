@@ -26,6 +26,7 @@ import static net.solarnetwork.test.CommonTestUtils.randomString;
 import static org.assertj.core.api.BDDAssertions.from;
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.assertj.core.api.InstanceOfAssertFactories.map;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
 import java.util.LinkedHashMap;
@@ -38,7 +39,9 @@ import org.junit.Before;
 import org.junit.Test;
 import net.solarnetwork.common.expr.spel.SpelExpressionService;
 import net.solarnetwork.domain.InstructionStatus.InstructionState;
+import net.solarnetwork.domain.datum.DatumSamples;
 import net.solarnetwork.domain.datum.DatumSamplesOperations;
+import net.solarnetwork.domain.datum.DatumSamplesType;
 import net.solarnetwork.node.dao.LocalStateDao;
 import net.solarnetwork.node.datum.filter.instr.InstructorConfig;
 import net.solarnetwork.node.datum.filter.instr.InstructorDatumFilterService;
@@ -64,6 +67,8 @@ public class InstructorDatumFilterServiceTests {
 	private static final String INPUT_SIGNAL_PROP_NAME = "presentSignal";
 	private static final String SIGNAL_SERVICE_UID = "Signal Handler " + randomString();
 	private static final String PRESENT_SIGNAL_INSTRUCTION_ID_LOCAL_STATE_KEY = "present-signal-instruction-id";
+	private static final String INSTRUCTION_STATUS_RESULT_PARAM_NAME = "result";
+	private static final String RESULT_PROP_NAME = "instructionResult";
 
 	private InstructionExecutionService instructionExecutionService;
 	private LocalStateDao localStateDao;
@@ -174,6 +179,88 @@ public class InstructorDatumFilterServiceTests {
 			.returns(PRESENT_SIGNAL_INSTRUCTION_ID_LOCAL_STATE_KEY, from(LocalState::getKey))
 			.as("LocalState value is instruction ID")
 			.returns(instruction.getId(), from(LocalState::getValue))
+			;
+		// @formatter:on
+	}
+
+	@Test
+	public void generateDeferredInstruction_saveResultAsDatumProp() {
+		// GIVEN
+		final InstructorConfig config = new InstructorConfig();
+		config.setTopic(InstructionHandler.TOPIC_SIGNAL);
+		config.getPrecicate().setExpression("""
+				%s == 1
+				""".formatted(INPUT_SIGNAL_PROP_NAME));
+		config.getPrecicate().setExpressionServiceId(exprService.getUid());
+
+		final ExpressionConfig signalParamConfig = new ExpressionConfig();
+		signalParamConfig.setName(InstructionHandler.PARAM_SERVICE);
+		signalParamConfig.setExpression(SIGNAL_SERVICE_UID);
+
+		config.setParameters(new ExpressionConfig[] { signalParamConfig });
+
+		final ExpressionConfig resultResponseConfig = new ExpressionConfig();
+		resultResponseConfig.setPropertyKey(RESULT_PROP_NAME);
+		resultResponseConfig.setPropertyType(DatumSamplesType.Status);
+		resultResponseConfig.setExpression("""
+				instructionResult != null && instructionResult.completed
+				? instructionResult.resultParameters["%s"]
+				: null
+				""".formatted(INSTRUCTION_STATUS_RESULT_PARAM_NAME));
+		resultResponseConfig.setExpressionServiceId(exprService.getUid());
+		config.setResponses(new ExpressionConfig[] { resultResponseConfig });
+
+		xform.setInstructorConfigs(new InstructorConfig[] { config });
+
+		final String instructionStatusResult = randomString();
+		final Capture<Instruction> instructionCaptor = Capture.newInstance();
+		expect(instructionExecutionService.executeInstruction(capture(instructionCaptor)))
+				.andAnswer(() -> {
+					final Instruction instr = (Instruction) EasyMock.getCurrentArguments()[0];
+					return InstructionUtils.createStatus(instr, InstructionState.Completed,
+							Map.of(INSTRUCTION_STATUS_RESULT_PARAM_NAME, instructionStatusResult));
+				});
+
+		// WHEN
+		replayAll();
+		final SimpleDatum d = createTestSimpleDatum(randomString(), INPUT_SIGNAL_PROP_NAME, 1);
+		final Map<String, Object> parameters = new LinkedHashMap<>();
+		final DatumSamplesOperations result = xform.filter(d, d.getSamples(), parameters);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("Result provided")
+			.isNotNull()
+			.as("New samples instance returned")
+			.isNotSameAs(d.getSamples())
+			.as("DatumSamples instance returned")
+			.isInstanceOf(DatumSamples.class)
+			.asInstanceOf(type(DatumSamples.class))
+			.satisfies(s -> {
+				then(s.getInstantaneous())
+					.as("Given instantaneous datum properties remain")
+					.containsExactlyInAnyOrderEntriesOf(d.getSamples().getInstantaneous())
+					;
+				then(s.getStatus())
+					.as("Response expression result saved to status datum property")
+					.containsExactlyInAnyOrderEntriesOf(Map.of(
+						RESULT_PROP_NAME, instructionStatusResult
+					))
+					;
+			})
+			;
+
+		final Instruction instruction = instructionCaptor.getValue();
+		then(instruction)
+			.as("Instruction generated")
+			.isNotNull()
+			.as("Instruction topic from config")
+			.returns(config.getTopic(), from(Instruction::getTopic))
+			.extracting(Instruction::getParameterMap, map(String.class, String.class))
+			.containsExactlyInAnyOrderEntriesOf(Map.of(
+				InstructionHandler.PARAM_SERVICE, SIGNAL_SERVICE_UID
+			))
 			;
 		// @formatter:on
 	}
