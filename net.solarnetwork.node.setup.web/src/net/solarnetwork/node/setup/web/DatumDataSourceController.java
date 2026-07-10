@@ -191,9 +191,6 @@ public class DatumDataSourceController {
 			// all services implement DatumSourceIdProvider at a minimum, so safe to cast here
 			final DatumSourceIdProvider dsp = (DatumSourceIdProvider) s;
 			final String uid = dsp.getUid();
-			if ( uid == null ) {
-				continue;
-			}
 
 			final SettingSpecifierProviderInfo info;
 			String instanceId = null;
