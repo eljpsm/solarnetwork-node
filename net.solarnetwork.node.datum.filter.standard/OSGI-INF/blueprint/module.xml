@@ -1052,4 +1052,73 @@
 		</bean>
 	</osgix:managed-service-factory>
 
+	<!--
+	 !!! Instructor Filter Service
+	 -->
+
+	<bean id="instructorMessageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+		<property name="basenames">
+			<array>
+				<value>net.solarnetwork.node.datum.filter.instr.InstructorDatumFilterService</value>
+				<value>net.solarnetwork.node.service.support.BaseDatumFilterSupport</value>
+				<value>net.solarnetwork.service.support.BasicIdentifiable</value>
+			</array>
+		</property>
+		<property name="parentMessageSource">
+			<bean class="net.solarnetwork.support.PrefixedMessageSource">
+				<property name="prefix" value="instructorConfigsItem."/>
+				<property name="delegate">
+					<bean class="org.springframework.context.support.ResourceBundleMessageSource">
+						<property name="basename" value="net.solarnetwork.node.datum.filter.instr.InstructorConfig"/>
+					</bean>
+				</property>
+			</bean>
+		</property>
+	</bean>
+
+	<service interface="net.solarnetwork.settings.SettingSpecifierProviderFactory">
+		<service-properties>
+			<entry key="role">
+				<array value-type="java.lang.String">
+					<value>user</value>
+					<value>datum-filter</value>
+				</array>
+			</entry>
+		</service-properties>
+		<bean class="net.solarnetwork.settings.support.BasicSettingSpecifierProviderFactory">
+			<property name="displayName" value="Instructor Filter"/>
+			<property name="factoryUid" value="net.solarnetwork.node.datum.filter.instructor"/>
+			<property name="messageSource" ref="instructorMessageSource"/>
+		</bean>
+	</service>
+
+	<osgix:managed-service-factory factory-pid="net.solarnetwork.node.datum.filter.instructor"
+			autowire-on-update="true" update-method="configurationChanged">
+		<osgix:interfaces>
+			<beans:value>net.solarnetwork.service.DatumFilterService</beans:value>
+			<beans:value>net.solarnetwork.settings.SettingSpecifierProvider</beans:value>
+		</osgix:interfaces>
+		<osgix:service-properties>
+			<beans:entry key="settingPid" value="net.solarnetwork.node.datum.filter.instructor"/>
+			<beans:entry key="role">
+				<beans:array value-type="java.lang.String">
+					<beans:value>user</beans:value>
+					<beans:value>datum-filter</beans:value>
+				</beans:array>
+			</beans:entry>
+		</osgix:service-properties>
+		<bean class="net.solarnetwork.node.datum.filter.instr.InstructorDatumFilterService">
+			<argument ref="instructionExecutionService"/>
+			<property name="expressionServices" ref="expressionServices"/>
+			<property name="messageSource" ref="instructorMessageSource"/>
+			<property name="datumService" ref="datumService"/>
+			<property name="opModesService" ref="opModesService"/>
+			<property name="placeholderService" ref="placeholderService"/>
+			<property name="metadataService" ref="nodeMetadataService"/>
+			<property name="locationService" ref="locationService"/>
+			<property name="tariffScheduleProviders" ref="tariffScheduleProviders"/>
+			<property name="localStateDao" ref="localStateDao"/>
+		</bean>
+	</osgix:managed-service-factory>
+
 </blueprint>
