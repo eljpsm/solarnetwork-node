@@ -59,7 +59,7 @@ import net.solarnetwork.util.WeakValueConcurrentHashMap;
  * </p>
  *
  * @author matt
- * @version 1.8
+ * @version 1.9
  * @since 2.0
  */
 public class DatumFilterChainService extends BaseDatumFilterSupport
@@ -159,8 +159,7 @@ public class DatumFilterChainService extends BaseDatumFilterSupport
 
 		if ( configurableUid ) {
 			result.addAll(baseIdentifiableSettings(""));
-			result.add(new BasicTextFieldSettingSpecifier("requiredOperationalMode", null));
-			result.add(new BasicTextFieldSettingSpecifier("requiredTag", null));
+			populateBaseSampleTransformSupportSettings(result);
 		}
 
 		populateStatusSettings(result);

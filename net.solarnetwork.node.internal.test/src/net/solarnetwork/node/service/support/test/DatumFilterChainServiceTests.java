@@ -25,6 +25,7 @@ package net.solarnetwork.node.service.support.test;
 import static java.lang.Boolean.TRUE;
 import static java.util.Collections.singletonMap;
 import static net.solarnetwork.node.service.support.DatumFilterChainService.EXECUTED_FILTER_CHAINS_PARAM;
+import static org.assertj.core.api.BDDAssertions.then;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
@@ -176,6 +177,71 @@ public class DatumFilterChainServiceTests {
 		assertThat("Input instance provided to xform", s, is(sameInstance(xform.input.get(0))));
 		assertThat("Transformed instance returned", result, is(sameInstance(xform.output.get(0))));
 		assertThat("Parameter map provided", xform.params.get(0), is(notNullValue()));
+	}
+
+	@Test
+	public void source_mismatch() {
+		// GIVEN
+		chain.setSourceId("does not match");
+
+		SimpleDatum d = createTestDatum();
+
+		// WHEN
+		replayAll();
+		DatumSamples s = new DatumSamples(d.getSamples());
+		DatumSamplesOperations result = chain.filter(d, s, null);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("Input instance returned because source ID pattern does not match")
+			.isSameAs(s)
+			.as("Samples unchanged")
+			.isEqualTo(d.getSamples())
+			;
+		// @formatter:on
+	}
+
+	@Test
+	public void source_match() {
+		// GIVEN
+		InvocationCountingTransform xform = new InvocationCountingTransform(TEST_UID);
+		xforms.add(xform);
+		chain.setTransformUids(new String[] { TEST_UID });
+		chain.setSourceId("^test");
+
+		SimpleDatum d = createTestDatum();
+
+		// WHEN
+		replayAll();
+		DatumSamples s = new DatumSamples(d.getSamples());
+		DatumSamplesOperations result = chain.filter(d, s, null);
+
+		// THEN
+		// @formatter:off
+		then(xform.count)
+			.as("Transform invoked because source ID pattern matches")
+			.isEqualTo(1)
+			;
+
+		then(xform.input.get(0))
+			.as("Input instance provided to xform")
+			.isSameAs(s)
+			;
+
+
+		then(xform.params.get(0))
+			.as("Parameter map provided to xform")
+			.isNotNull()
+			;
+
+		then(result)
+			.as("Different instance returned because source ID pattern matches")
+			.isNotSameAs(s)
+			.as("Transformed instance returned")
+			.isSameAs(xform.output.get(0))
+			;
+		// @formatter:on
 	}
 
 	@Test
