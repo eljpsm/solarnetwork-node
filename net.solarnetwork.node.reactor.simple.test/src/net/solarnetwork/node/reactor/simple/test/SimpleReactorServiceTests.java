@@ -22,6 +22,13 @@
 
 package net.solarnetwork.node.reactor.simple.test;
 
+import static java.time.Instant.now;
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Declined;
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Executing;
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Received;
+import static net.solarnetwork.node.reactor.Instruction.LOCAL_INSTRUCTION_ID;
+import static org.assertj.core.api.BDDAssertions.from;
+import static org.assertj.core.api.BDDAssertions.then;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
@@ -33,7 +40,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
@@ -139,13 +145,12 @@ public class SimpleReactorServiceTests {
 	}
 
 	@Test
-	public void cancel_notFound() {
+	public void cancel_notFound_noChildren() {
 		// GIVEN
 		Long oldInstrId = new SecureRandom().nextLong();
 
 		Long instrId = new SecureRandom().nextLong();
-		BasicInstructionStatus status = new BasicInstructionStatus(instrId, InstructionState.Executing,
-				Instant.now());
+		BasicInstructionStatus status = new BasicInstructionStatus(instrId, Executing, now());
 		BasicInstruction instr = new BasicInstruction(instrId,
 				InstructionHandler.TOPIC_CANCEL_INSTRUCTION, Instant.now().minusSeconds(1),
 				TEST_INSTRUCTOR_ID, status);
@@ -154,14 +159,23 @@ public class SimpleReactorServiceTests {
 		// get instruction to cancel based on this instruction's "id" parameter
 		expect(instructionDao.getInstruction(oldInstrId, TEST_INSTRUCTOR_ID)).andReturn(null);
 
+		// search for child instructions to cancel (find none)
+		expect(instructionDao.findInstructionsForStateAndParent(Received, TEST_INSTRUCTOR_ID,
+				oldInstrId)).andReturn(List.of());
+
 		// WHEN
 		replayAll();
 		InstructionStatus result = service.processInstruction(instr);
 
 		// THEN
-		assertThat("Result provided", result, is(notNullValue()));
-		assertThat("State is Declined", result.getInstructionState(),
-				is(equalTo(InstructionState.Declined)));
+		// @formatter:off
+		then(result)
+			.as("Result provided")
+			.isNotNull()
+			.as("State is Declined because instruction not found")
+			.returns(Declined, from(InstructionStatus::getInstructionState))
+			;
+		// @formatter:on
 	}
 
 	@Test
@@ -193,7 +207,7 @@ public class SimpleReactorServiceTests {
 
 		// search for child instructions to cancel
 		expect(instructionDao.findInstructionsForStateAndParent(InstructionState.Received,
-				TEST_INSTRUCTOR_ID, oldInstrId)).andReturn(Collections.emptyList());
+				TEST_INSTRUCTOR_ID, oldInstrId)).andReturn(List.of());
 
 		// WHEN
 		replayAll();
@@ -278,6 +292,48 @@ public class SimpleReactorServiceTests {
 			assertThat("Child instruction message provided", declined.getResultParameters(),
 					hasEntry(equalTo(InstructionHandler.PARAM_MESSAGE), notNullValue()));
 		}
+	}
+
+	@Test
+	public void cancel_notFound_withChildren() {
+		// GIVEN
+		Long oldInstrId = new SecureRandom().nextLong();
+
+		Long instrId = new SecureRandom().nextLong();
+		BasicInstructionStatus status = new BasicInstructionStatus(instrId, Executing, now());
+		BasicInstruction instr = new BasicInstruction(instrId,
+				InstructionHandler.TOPIC_CANCEL_INSTRUCTION, Instant.now().minusSeconds(1),
+				TEST_INSTRUCTOR_ID, status);
+		instr.addParameter(InstructionHandler.PARAM_ID, oldInstrId.toString());
+
+		// get instruction to cancel based on this instruction's "id" parameter
+		expect(instructionDao.getInstruction(oldInstrId, TEST_INSTRUCTOR_ID)).andReturn(null);
+
+		// search for child instructions to cancel (find 1)
+		final Instruction childInstruction = InstructionUtils
+				.createSetControlValueLocalInstruction("foo", "bar");
+		expect(instructionDao.findInstructionsForStateAndParent(Received, TEST_INSTRUCTOR_ID,
+				oldInstrId)).andReturn(List.of(childInstruction));
+
+		// cancel the child
+		Capture<InstructionStatus> declineChildInstructionStatusCaptor = Capture.newInstance();
+		expect(instructionDao.compareAndStoreInstructionStatus(eq(childInstruction.getId()),
+				eq(LOCAL_INSTRUCTION_ID), eq(Received), capture(declineChildInstructionStatusCaptor)))
+						.andReturn(true);
+
+		// WHEN
+		replayAll();
+		InstructionStatus result = service.processInstruction(instr);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("Result provided")
+			.isNotNull()
+			.as("State is Declined because instruction not found")
+			.returns(Declined, from(InstructionStatus::getInstructionState))
+			;
+		// @formatter:on
 	}
 
 }

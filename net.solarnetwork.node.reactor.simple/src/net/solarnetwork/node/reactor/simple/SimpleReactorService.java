@@ -22,6 +22,9 @@
 
 package net.solarnetwork.node.reactor.simple;
 
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Completed;
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Declined;
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Received;
 import static net.solarnetwork.node.reactor.InstructionUtils.createErrorResultParameters;
 import static net.solarnetwork.node.reactor.InstructionUtils.createStatus;
 import java.util.List;
@@ -30,19 +33,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import net.solarnetwork.domain.InstructionStatus.InstructionState;
 import net.solarnetwork.node.reactor.Instruction;
 import net.solarnetwork.node.reactor.InstructionDao;
 import net.solarnetwork.node.reactor.InstructionHandler;
 import net.solarnetwork.node.reactor.InstructionStatus;
-import net.solarnetwork.node.reactor.InstructionUtils;
 import net.solarnetwork.node.reactor.ReactorService;
 
 /**
  * Simple implementation of {@link ReactorService}.
  *
  * @author matt
- * @version 1.1
+ * @version 1.2
  * @since 2.0
  */
 public class SimpleReactorService implements ReactorService, InstructionHandler {
@@ -104,52 +105,58 @@ public class SimpleReactorService implements ReactorService, InstructionHandler 
 	private InstructionStatus handleCancelInstruction(Instruction instruction) {
 		String instructionIdVal = instruction.getParameterValue(PARAM_ID);
 		if ( instructionIdVal == null ) {
-			return createStatus(instruction, InstructionState.Declined,
+			return createStatus(instruction, Declined,
 					createErrorResultParameters("Missing 'id' parameter.", "SRS.0001"));
 		}
 		Long instructionId = null;
 		try {
 			instructionId = Long.valueOf(instructionIdVal);
 		} catch ( NumberFormatException e ) {
-			return createStatus(instruction, InstructionState.Declined,
+			return createStatus(instruction, Declined,
 					createErrorResultParameters("Invalid 'id' parameter (not a number).", "SRS.0002"));
 		}
-		Instruction instr = instructionDao.getInstruction(instructionId, instruction.getInstructorId());
-		if ( instr == null ) {
-			return createStatus(instruction, InstructionState.Declined,
-					createErrorResultParameters("Instruction with given 'id' not found.", "SRS.0003"));
+		try {
+			Instruction instr = instructionDao.getInstruction(instructionId,
+					instruction.getInstructorId());
+			if ( instr == null ) {
+				return createStatus(instruction, Declined, createErrorResultParameters(
+						"Instruction with given 'id' not found.", "SRS.0003"));
+			}
+			boolean updated = instructionDao
+					.compareAndStoreInstructionStatus(instructionId, instruction.getInstructorId(),
+							Received,
+							createStatus(instruction, Declined,
+									createErrorResultParameters(
+											String.format("Instruction cancelled by %s Instruction %d",
+													instruction.getTopic(), instruction.getId()),
+											null)));
+			if ( !updated ) {
+				return createStatus(instruction, Declined,
+						createErrorResultParameters("Instruction failed to update state.", "SRS.0004"));
+			}
+			log.info("Cancelled instruction {} because of {} instruction {}", instructionId,
+					instruction.getTopic(), instruction.getId());
+		} finally {
+			// also cancel any available children
+			cancelChildInstructions(instruction, instructionId);
 		}
-		boolean updated = instructionDao.compareAndStoreInstructionStatus(instructionId,
-				instruction.getInstructorId(), InstructionState.Received,
-				InstructionUtils.createStatus(instruction, InstructionState.Declined,
-						createErrorResultParameters(
-								String.format("Instruction cancelled by %s Instruction %d",
-										instruction.getTopic(), instruction.getId()),
-								null)));
-		if ( !updated ) {
-			return createStatus(instruction, InstructionState.Declined,
-					createErrorResultParameters("Instruction failed to update state.", "SRS.0004"));
-		}
-		log.info("Cancelled instruction {} because of {} instruction {}", instructionId,
-				instruction.getTopic(), instruction.getId());
+		return createStatus(instruction, Completed);
+	}
 
-		// also cancel any available children
-		List<Instruction> children = instructionDao.findInstructionsForStateAndParent(
-				InstructionState.Received, instr.getInstructorId(), instructionId);
+	private void cancelChildInstructions(final Instruction instruction, final Long parentInstructionId) {
+		List<Instruction> children = instructionDao.findInstructionsForStateAndParent(Received,
+				instruction.getInstructorId(), parentInstructionId);
 		for ( Instruction child : children ) {
-			updated = instructionDao.compareAndStoreInstructionStatus(child.getId(),
-					child.getInstructorId(), InstructionState.Received,
-					InstructionUtils.createStatus(instruction, InstructionState.Declined,
-							createErrorResultParameters(String.format(
-									"Instruction cancelled by %s Instruction %d on parent instruction %d",
-									instruction.getTopic(), instruction.getId(), instr.getId()), null)));
+			boolean updated = instructionDao.compareAndStoreInstructionStatus(child.getId(),
+					child.getInstructorId(), Received,
+					createStatus(child, Declined, createErrorResultParameters(String.format(
+							"Instruction cancelled by %s instruction %d on parent instruction %d",
+							instruction.getTopic(), instruction.getId(), parentInstructionId), null)));
 			if ( updated ) {
-				log.info("Cancelled instruction {} because of {} instruction {} on parent instruction",
-						instructionId, instruction.getTopic(), instruction.getId(), instr.getId());
+				log.info("Cancelled instruction {} because of {} on parent instruction {}",
+						child.getId(), instruction.getTopic(), instruction.getId(), parentInstructionId);
 			}
 		}
-
-		return createStatus(instruction, InstructionState.Completed);
 	}
 
 }
