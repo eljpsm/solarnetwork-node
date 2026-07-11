@@ -23,6 +23,7 @@
 package net.solarnetwork.node.reactor.simple.test;
 
 import static java.time.Instant.now;
+import static net.solarnetwork.domain.InstructionStatus.InstructionState.Completed;
 import static net.solarnetwork.domain.InstructionStatus.InstructionState.Declined;
 import static net.solarnetwork.domain.InstructionStatus.InstructionState.Executing;
 import static net.solarnetwork.domain.InstructionStatus.InstructionState.Received;
@@ -174,6 +175,41 @@ public class SimpleReactorServiceTests {
 			.isNotNull()
 			.as("State is Declined because instruction not found")
 			.returns(Declined, from(InstructionStatus::getInstructionState))
+			;
+		// @formatter:on
+	}
+
+	@Test
+	public void cancel_notFound_noChildren_ignoreErrors() {
+		// GIVEN
+		Long oldInstrId = new SecureRandom().nextLong();
+
+		Long instrId = new SecureRandom().nextLong();
+		BasicInstructionStatus status = new BasicInstructionStatus(instrId, Executing, now());
+		BasicInstruction instr = new BasicInstruction(instrId,
+				InstructionHandler.TOPIC_CANCEL_INSTRUCTION, Instant.now().minusSeconds(1),
+				TEST_INSTRUCTOR_ID, status);
+		instr.addParameter(InstructionHandler.PARAM_ID, oldInstrId.toString());
+		instr.addParameter(InstructionHandler.PARAM_IGNORE_ERRORS, Boolean.TRUE.toString());
+
+		// get instruction to cancel based on this instruction's "id" parameter
+		expect(instructionDao.getInstruction(oldInstrId, TEST_INSTRUCTOR_ID)).andReturn(null);
+
+		// search for child instructions to cancel (find none)
+		expect(instructionDao.findInstructionsForStateAndParent(Received, TEST_INSTRUCTOR_ID,
+				oldInstrId)).andReturn(List.of());
+
+		// WHEN
+		replayAll();
+		InstructionStatus result = service.processInstruction(instr);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("Result provided")
+			.isNotNull()
+			.as("State is Completed even though instruction not found, because of ignoreErrors parameter")
+			.returns(Completed, from(InstructionStatus::getInstructionState))
 			;
 		// @formatter:on
 	}

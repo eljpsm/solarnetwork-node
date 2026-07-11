@@ -33,11 +33,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import net.solarnetwork.domain.InstructionStatus.InstructionState;
 import net.solarnetwork.node.reactor.Instruction;
 import net.solarnetwork.node.reactor.InstructionDao;
 import net.solarnetwork.node.reactor.InstructionHandler;
 import net.solarnetwork.node.reactor.InstructionStatus;
 import net.solarnetwork.node.reactor.ReactorService;
+import net.solarnetwork.util.StringUtils;
 
 /**
  * Simple implementation of {@link ReactorService}.
@@ -102,36 +104,43 @@ public class SimpleReactorService implements ReactorService, InstructionHandler 
 		instructionDao.storeInstruction(instruction);
 	}
 
+	private static InstructionState errorResultState(boolean ignoreErrors) {
+		return (ignoreErrors ? Completed : Declined);
+	}
+
 	private InstructionStatus handleCancelInstruction(Instruction instruction) {
-		String instructionIdVal = instruction.getParameterValue(PARAM_ID);
+		final boolean ignoreErrors = StringUtils
+				.parseBoolean(instruction.getParameterValue(PARAM_IGNORE_ERRORS));
+		final String instructionIdVal = instruction.getParameterValue(PARAM_ID);
 		if ( instructionIdVal == null ) {
-			return createStatus(instruction, Declined,
+			return createStatus(instruction, errorResultState(ignoreErrors),
 					createErrorResultParameters("Missing 'id' parameter.", "SRS.0001"));
 		}
-		Long instructionId = null;
+		final Long instructionId;
 		try {
 			instructionId = Long.valueOf(instructionIdVal);
 		} catch ( NumberFormatException e ) {
-			return createStatus(instruction, Declined,
+			return createStatus(instruction, errorResultState(ignoreErrors),
 					createErrorResultParameters("Invalid 'id' parameter (not a number).", "SRS.0002"));
 		}
 		try {
 			Instruction instr = instructionDao.getInstruction(instructionId,
 					instruction.getInstructorId());
 			if ( instr == null ) {
-				return createStatus(instruction, Declined, createErrorResultParameters(
-						"Instruction with given 'id' not found.", "SRS.0003"));
+				return createStatus(instruction, errorResultState(ignoreErrors),
+						createErrorResultParameters("Instruction with given 'id' not found.",
+								"SRS.0003"));
 			}
 			boolean updated = instructionDao
 					.compareAndStoreInstructionStatus(instructionId, instruction.getInstructorId(),
 							Received,
-							createStatus(instruction, Declined,
+							createStatus(instruction, errorResultState(ignoreErrors),
 									createErrorResultParameters(
 											String.format("Instruction cancelled by %s Instruction %d",
 													instruction.getTopic(), instruction.getId()),
 											null)));
 			if ( !updated ) {
-				return createStatus(instruction, Declined,
+				return createStatus(instruction, errorResultState(ignoreErrors),
 						createErrorResultParameters("Instruction failed to update state.", "SRS.0004"));
 			}
 			log.info("Cancelled instruction {} because of {} instruction {}", instructionId,

@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
  * API to be implemented by a service that can handle instructions.
  *
  * @author matt
- * @version 2.2
+ * @version 2.3
  */
 public interface InstructionHandler {
 
@@ -221,6 +221,21 @@ public interface InstructionHandler {
 	 * @see #TOPIC_SYSTEM_CONFIGURE for applying system configuration updates
 	 */
 	String TOPIC_SYSTEM_CONFIGURATION = "SystemConfiguration";
+
+	/**
+	 * An instruction parameter for a boolean indication if errors should be
+	 * ignored.
+	 *
+	 * <p>
+	 * The nature of this parameter depends on the topic it is associated with.
+	 * Generally it is meant to signal that a "success" status is desired even
+	 * if a problem occurs that would otherwise generate a "failure" status
+	 * result.
+	 * </p>
+	 *
+	 * @since 2.3
+	 */
+	String PARAM_IGNORE_ERRORS = "ignoreErrors";
 
 	/**
 	 * Test if a topic is handled by this handler.
