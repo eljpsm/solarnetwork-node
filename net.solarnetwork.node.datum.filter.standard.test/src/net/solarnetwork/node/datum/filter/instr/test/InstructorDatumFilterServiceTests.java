@@ -107,10 +107,10 @@ public class InstructorDatumFilterServiceTests {
 		// GIVEN
 		final InstructorConfig config = new InstructorConfig();
 		config.setTopic(InstructionHandler.TOPIC_SIGNAL);
-		config.getPrecicate().setExpression("""
+		config.getPredicate().setExpression("""
 				%s == 1
 				""".formatted(INPUT_SIGNAL_PROP_NAME));
-		config.getPrecicate().setExpressionServiceId(exprService.getUid());
+		config.getPredicate().setExpressionServiceId(exprService.getUid());
 
 		final ExpressionConfig signalParamConfig = new ExpressionConfig();
 		signalParamConfig.setName(InstructionHandler.PARAM_SERVICE);
@@ -188,10 +188,10 @@ public class InstructorDatumFilterServiceTests {
 		// GIVEN
 		final InstructorConfig config = new InstructorConfig();
 		config.setTopic(InstructionHandler.TOPIC_SIGNAL);
-		config.getPrecicate().setExpression("""
+		config.getPredicate().setExpression("""
 				%s == 1
 				""".formatted(INPUT_SIGNAL_PROP_NAME));
-		config.getPrecicate().setExpressionServiceId(exprService.getUid());
+		config.getPredicate().setExpressionServiceId(exprService.getUid());
 
 		final ExpressionConfig signalParamConfig = new ExpressionConfig();
 		signalParamConfig.setName(InstructionHandler.PARAM_SERVICE);

@@ -45,7 +45,7 @@ import net.solarnetwork.util.ArrayUtils;
  */
 public class InstructorConfig {
 
-	private final ExpressionConfiguration precicate;
+	private final ExpressionConfiguration predicate;
 	private @Nullable String topic;
 	private ExpressionConfig @Nullable [] parameters;
 	private ExpressionConfig @Nullable [] responses;
@@ -55,7 +55,7 @@ public class InstructorConfig {
 	 */
 	public InstructorConfig() {
 		super();
-		this.precicate = new ExpressionConfiguration();
+		this.predicate = new ExpressionConfiguration();
 	}
 
 	/**
@@ -79,7 +79,7 @@ public class InstructorConfig {
 	 *         are available
 	 */
 	public boolean isValid(@Nullable Iterable<ExpressionService> expressionServices) {
-		return (topic != null && !topic.isEmpty() && precicate.expression(expressionServices) != null);
+		return (topic != null && !topic.isEmpty() && predicate.expression(expressionServices) != null);
 	}
 
 	/**
@@ -147,8 +147,8 @@ public class InstructorConfig {
 	 *
 	 * @return the predicate configuration
 	 */
-	public final ExpressionConfiguration getPrecicate() {
-		return precicate;
+	public final ExpressionConfiguration getPredicate() {
+		return predicate;
 	}
 
 	/**

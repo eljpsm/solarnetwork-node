@@ -128,7 +128,7 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 				}
 
 				// evaluate the predicate to see if we need to generate an instruction
-				final ExpressionConfiguration predicateConfig = nonnull(config.getPrecicate(),
+				final ExpressionConfiguration predicateConfig = nonnull(config.getPredicate(),
 						"Predicate");
 
 				try {
@@ -153,6 +153,7 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 				} catch ( EvaluationException e ) {
 					log.error("Error evaluating [{}] predicate expression `{}`: {}",
 							instructorDescription, predicateConfig.getExpression(), e.getMessage());
+					break;
 				} catch ( ExpressionException e ) {
 					log.error("Error parsing [{}] predicate expression `{}`: {}", instructorDescription,
 							predicateConfig.getExpression(), e.getMessage());
