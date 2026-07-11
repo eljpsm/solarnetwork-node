@@ -22,17 +22,15 @@
 
 package net.solarnetwork.node.datum.filter.instr;
 
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
-import net.solarnetwork.node.service.support.ExpressionConfig;
 import net.solarnetwork.service.ExpressionService;
 import net.solarnetwork.service.support.ExpressionConfiguration;
-import net.solarnetwork.settings.KeyedSettingSpecifier;
 import net.solarnetwork.settings.SettingSpecifier;
 import net.solarnetwork.settings.support.BasicGroupSettingSpecifier;
-import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
 import net.solarnetwork.settings.support.SettingUtils;
 import net.solarnetwork.util.ArrayUtils;
 
@@ -46,9 +44,7 @@ import net.solarnetwork.util.ArrayUtils;
 public class InstructorConfig {
 
 	private final ExpressionConfiguration predicate;
-	private @Nullable String topic;
-	private ExpressionConfig @Nullable [] parameters;
-	private ExpressionConfig @Nullable [] responses;
+	private InstructionConfig @Nullable [] instructions;
 
 	/**
 	 * Constructor.
@@ -65,8 +61,7 @@ public class InstructorConfig {
 	 */
 	public static InstructorConfig template() {
 		var result = new InstructorConfig();
-		result.parameters = new ExpressionConfig[] { new ExpressionConfig() };
-		result.responses = new ExpressionConfig[] { new ExpressionConfig() };
+		result.instructions = new InstructionConfig[] { InstructionConfig.template() };
 		return result;
 	}
 
@@ -75,11 +70,21 @@ public class InstructorConfig {
 	 *
 	 * @param expressionServices
 	 *        the available expression services
-	 * @return {@code true} if an instruction topic and a predicate expression
-	 *         are available
+	 * @return {@code true} if a predicate expression and some valid instruction
+	 *         configuration are available
 	 */
 	public boolean isValid(@Nullable Iterable<ExpressionService> expressionServices) {
-		return (topic != null && !topic.isEmpty() && predicate.expression(expressionServices) != null);
+		boolean someInstructionIsValid = false;
+		final InstructionConfig[] instructionConfigs = this.instructions;
+		if ( instructionConfigs != null && instructionConfigs.length > 0 ) {
+			for ( InstructionConfig instructionConfig : instructionConfigs ) {
+				if ( instructionConfig != null && instructionConfig.isValid() ) {
+					someInstructionIsValid = true;
+					break;
+				}
+			}
+		}
+		return (someInstructionIsValid && predicate.expression(expressionServices) != null);
 	}
 
 	/**
@@ -100,42 +105,19 @@ public class InstructorConfig {
 		result.addAll(ExpressionConfiguration.settings(InstructorConfig.class, prefix + "predicate.",
 				expressionServices));
 
-		result.add(new BasicTextFieldSettingSpecifier(prefix + "topic", null));
-
-		// parameters list
-		final ExpressionConfig[] params = getParameters();
-		final List<ExpressionConfig> paramsList = (template ? List.of(new ExpressionConfig())
-				: (params != null ? List.of(params) : List.of()));
-		result.add(SettingUtils.dynamicListSettingSpecifier(prefix + "parameters", paramsList,
+		// instructions list
+		final InstructionConfig[] instrs = getInstructions();
+		final List<InstructionConfig> instrsList = (template ? List.of(InstructionConfig.template())
+				: (instrs != null ? List.of(instrs) : List.of()));
+		result.add(SettingUtils.dynamicListSettingSpecifier(prefix + "instructions", instrsList,
 				new SettingUtils.KeyedListCallback<>() {
 
 					@Override
 					public Collection<SettingSpecifier> mapListSettingKey(
-							@Nullable ExpressionConfig value, int index, String key) {
-						// remove the Property Type setting from the expression config, which does not apply for
-						// these instruction parameter expressions
-						List<SettingSpecifier> exprSettings = ExpressionConfig
-								.settings(InstructorConfig.class, key + ".", expressionServices).stream()
-								.filter(s -> !(s instanceof KeyedSettingSpecifier<?> ks
-										&& ks.getKey().endsWith(".datumPropertyTypeKey")))
-								.toList();
-						return List.of(new BasicGroupSettingSpecifier(exprSettings));
-					}
-				}));
-
-		// responses list
-		final ExpressionConfig[] resps = getResponses();
-		final List<ExpressionConfig> respsList = (template ? List.of(new ExpressionConfig())
-				: (resps != null ? List.of(resps) : List.of()));
-		result.add(SettingUtils.dynamicListSettingSpecifier(prefix + "responses", respsList,
-				new SettingUtils.KeyedListCallback<>() {
-
-					@Override
-					public Collection<SettingSpecifier> mapListSettingKey(
-							@Nullable ExpressionConfig value, int index, String key) {
-						SettingSpecifier configGroup = new BasicGroupSettingSpecifier(ExpressionConfig
-								.settings(InstructorConfig.class, key + ".", expressionServices));
-						return List.of(configGroup);
+							@Nullable InstructionConfig value, int index, String key) {
+						return List.of(new BasicGroupSettingSpecifier(
+								nonnull(value, "Instruction configuration").settings(template, key + ".",
+										expressionServices)));
 					}
 				}));
 
@@ -152,111 +134,48 @@ public class InstructorConfig {
 	}
 
 	/**
-	 * Get the instruction topic.
+	 * Get the instruction instructions.
 	 *
-	 * @return the topic
+	 * @return the instructions
 	 */
-	public final @Nullable String getTopic() {
-		return topic;
+	public final InstructionConfig @Nullable [] getInstructions() {
+		return instructions;
 	}
 
 	/**
-	 * Set the instruction topic.
+	 * Get the number of configured {@code instructions} elements.
 	 *
-	 * @param topic
-	 *        the topic to set
+	 * @return the number of {@code instructions} elements
 	 */
-	public final void setTopic(@Nullable String topic) {
-		this.topic = topic;
-	}
-
-	/**
-	 * Get the instruction parameters.
-	 *
-	 * @return the parameters
-	 */
-	public final ExpressionConfig @Nullable [] getParameters() {
-		return parameters;
-	}
-
-	/**
-	 * Get the number of configured {@code parameters} elements.
-	 *
-	 * @return the number of {@code parameters} elements
-	 */
-	public final int getParametersCount() {
-		final ExpressionConfig[] confs = this.parameters;
+	public final int getInstructionsCount() {
+		final InstructionConfig[] confs = this.instructions;
 		return (confs == null ? 0 : confs.length);
 	}
 
 	/**
-	 * Adjust the number of configured {@code parameters} elements.
+	 * Adjust the number of configured {@code instructions} elements.
 	 *
 	 * <p>
 	 * Any newly added element values will be set to new
-	 * {@link ExpressionConfig} instances.
+	 * {@link InstructionConfig} instances.
 	 * </p>
 	 *
 	 * @param count
-	 *        The desired number of {@code parameters} elements.
+	 *        The desired number of {@code instructions} elements.
 	 */
-	public final void setParametersCount(int count) {
-		this.parameters = ArrayUtils.arrayWithLength(this.parameters, count, ExpressionConfig.class,
+	public final void setInstructionsCount(int count) {
+		this.instructions = ArrayUtils.arrayWithLength(this.instructions, count, InstructionConfig.class,
 				null);
 	}
 
 	/**
-	 * Set the instruction parameters.
+	 * Set the instruction instructions.
 	 *
-	 * @param parameters
-	 *        the parameters to set
+	 * @param instructions
+	 *        the instructions to set
 	 */
-	public final void setParameters(ExpressionConfig @Nullable [] parameters) {
-		this.parameters = parameters;
-	}
-
-	/**
-	 * Get the response expression configurations.
-	 *
-	 * @return the responses
-	 */
-	public final ExpressionConfig @Nullable [] getResponses() {
-		return responses;
-	}
-
-	/**
-	 * Set the response expression configurations.
-	 *
-	 * @param responses
-	 *        the responses to set
-	 */
-	public final void setResponses(ExpressionConfig @Nullable [] responses) {
-		this.responses = responses;
-	}
-
-	/**
-	 * Get the number of configured {@code responses} elements.
-	 *
-	 * @return the number of {@code responses} elements
-	 */
-	public final int getResponsesCount() {
-		final ExpressionConfig[] confs = this.responses;
-		return (confs == null ? 0 : confs.length);
-	}
-
-	/**
-	 * Adjust the number of configured {@code responses} elements.
-	 *
-	 * <p>
-	 * Any newly added element values will be set to new
-	 * {@link ExpressionConfig} instances.
-	 * </p>
-	 *
-	 * @param count
-	 *        The desired number of {@code responses} elements.
-	 */
-	public final void setResponsesCount(int count) {
-		this.responses = ArrayUtils.arrayWithLength(this.responses, count, ExpressionConfig.class, null);
+	public final void setInstructions(InstructionConfig @Nullable [] instructions) {
+		this.instructions = instructions;
 	}
 
 }

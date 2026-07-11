@@ -1070,6 +1070,16 @@
 				<property name="delegate">
 					<bean class="org.springframework.context.support.ResourceBundleMessageSource">
 						<property name="basename" value="net.solarnetwork.node.datum.filter.instr.InstructorConfig"/>
+						<property name="parentMessageSource">
+							<bean class="net.solarnetwork.support.PrefixedMessageSource">
+								<property name="prefix" value="instructionsItem."/>
+								<property name="delegate">
+									<bean class="org.springframework.context.support.ResourceBundleMessageSource">
+										<property name="basename" value="net.solarnetwork.node.datum.filter.instr.InstructionConfig"/>
+									</bean>
+								</property>
+							</bean>
+						</property>
 					</bean>
 				</property>
 			</bean>

@@ -160,17 +160,25 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 					break;
 				}
 
-				// the predicate matched, so generate the instruction now and execute
-				final BasicInstruction instr = createInstruction(instructorDescription, config, root,
-						filterParams, expressionServices);
-				if ( instr != null ) {
-					InstructionStatus instrResult = execService.executeInstruction(instr);
-					if ( instrResult != null ) {
-						processInstructionResult(instructorDescription, config, root, filterParams,
-								expressionServices, mutableSamples, instr, instrResult);
-					} else {
-						log.warn("Service [{}] instruction [{}] was not handled; parameters: {}",
-								instructorDescription, instr.getTopic(), instr.getParameterMultiMap());
+				// the predicate matched, so generate the instruction(s) now and execute
+				for ( InstructionConfig instructionConfig : nonnull(config.getInstructions(),
+						"Instruction configurations") ) {
+					if ( !instructionConfig.isValid() ) {
+						continue;
+					}
+					final BasicInstruction instr = createInstruction(instructorDescription,
+							instructionConfig, root, filterParams, expressionServices);
+					if ( instr != null ) {
+						InstructionStatus instrResult = execService.executeInstruction(instr);
+						if ( instrResult != null ) {
+							processInstructionResult(instructorDescription, instructionConfig, root,
+									filterParams, expressionServices, mutableSamples, instr,
+									instrResult);
+						} else {
+							log.warn("Service [{}] instruction [{}] was not handled; parameters: {}",
+									instructorDescription, instr.getTopic(),
+									instr.getParameterMultiMap());
+						}
 					}
 				}
 			}
@@ -181,7 +189,7 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 	}
 
 	private @Nullable BasicInstruction createInstruction(String instructorDescription,
-			InstructorConfig config, ExpressionRoot root, Map<String, Object> filterParams,
+			InstructionConfig config, ExpressionRoot root, Map<String, Object> filterParams,
 			Iterable<ExpressionService> expressionServices) {
 		final String topic = nonnull(config.getTopic(), "Topic");
 		final Instant instructionDate = Instant.now();
@@ -238,7 +246,7 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 		return result;
 	}
 
-	private void processInstructionResult(String instructorDescription, InstructorConfig config,
+	private void processInstructionResult(String instructorDescription, InstructionConfig config,
 			ExpressionRoot root, Map<String, Object> filterParams,
 			Iterable<ExpressionService> expressionServices, MutableDatumSamplesOperations samples,
 			Instruction instruction, InstructionStatus instructionResult) {
