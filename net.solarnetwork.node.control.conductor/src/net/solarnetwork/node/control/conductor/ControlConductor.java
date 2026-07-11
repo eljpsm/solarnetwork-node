@@ -184,11 +184,10 @@ public class ControlConductor extends BaseIdentifiable
 		taskIndex = 0;
 		for ( Instruction taskInstruction : taskInstructions ) {
 			taskIndex += 1;
-			log.info("Scheduling {} instruction on behalf of {} instruction [{}] task [{}.{}] @ {}",
-					TOPIC_SIGNAL, instruction.getTopic(), instruction.getIdentifier(), uid, taskIndex,
-					taskInstruction.getExecutionDate());
-
 			rs.storeInstruction(taskInstruction);
+			log.info("Scheduled {} instruction {} on behalf of {} instruction [{}] task [{}.{}] @ {}",
+					TOPIC_SIGNAL, taskInstruction.getId(), instruction.getTopic(),
+					instruction.getIdentifier(), uid, taskIndex, taskInstruction.getExecutionDate());
 		}
 
 		return InstructionUtils.createStatus(instruction, InstructionState.Completed,
@@ -202,6 +201,9 @@ public class ControlConductor extends BaseIdentifiable
 			return null;
 		}
 		final String taskId = instruction.getParameterValue(uid);
+		if ( taskId == null ) {
+			return null;
+		}
 		final String taskIdentifier = format("%s.%s", uid, taskId);
 
 		int taskIndex;
