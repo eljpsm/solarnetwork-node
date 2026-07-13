@@ -36,6 +36,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.expression.Expression;
 import net.solarnetwork.domain.datum.DatumSamplePropertyConfig;
 import net.solarnetwork.domain.datum.DatumSamplesType;
+import net.solarnetwork.node.domain.Setting;
 import net.solarnetwork.node.settings.SettingValueBean;
 import net.solarnetwork.service.ExpressionService;
 import net.solarnetwork.service.support.ExpressionServiceExpression;
@@ -52,7 +53,7 @@ import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
  * </p>
  *
  * @author matt
- * @version 2.0
+ * @version 2.1
  * @since 1.79
  */
 public class ExpressionConfig extends DatumSamplePropertyConfig<String> {
@@ -84,6 +85,39 @@ public class ExpressionConfig extends DatumSamplePropertyConfig<String> {
 			@Nullable String expression, @Nullable String expressionServiceId) {
 		super(name, propertyType, expression);
 		this.expressionServiceId = expressionServiceId;
+	}
+
+	/**
+	 * Populate a property based on a setting.
+	 *
+	 * @param name
+	 *        the property name to populate
+	 * @param setting
+	 *        the setting value
+	 * @return {@code true} if {@code name} was a supported setting
+	 * @since 2.1
+	 */
+	public boolean populateSetting(String name, Setting setting) {
+		String val = setting.getValue();
+		if ( val != null && !val.isEmpty() ) {
+			switch (name) {
+				case "name":
+					setName(val);
+					break;
+				case "expression":
+					setExpression(val);
+					break;
+				case "expressionServiceId":
+					setExpressionServiceId(val);
+					break;
+				case "datumPropertyTypeKey":
+					setDatumPropertyTypeKey(val);
+					break;
+				default:
+					return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -152,16 +186,24 @@ public class ExpressionConfig extends DatumSamplePropertyConfig<String> {
 	 * @return the list of setting values, never {@code null}
 	 * @since 1.1
 	 */
-	public List<SettingValueBean> toSettingValues(String providerId, String instanceId, String prefix) {
-		List<SettingValueBean> settings = new ArrayList<>(16);
-		settings.add(new SettingValueBean(providerId, instanceId, prefix + "name", getName()));
-		settings.add(new SettingValueBean(providerId, instanceId, prefix + "datumPropertyTypeKey",
-				getDatumPropertyTypeKey()));
-		settings.add(new SettingValueBean(providerId, instanceId, prefix + "expressionServiceId",
-				getExpressionServiceId()));
-		settings.add(
-				new SettingValueBean(providerId, instanceId, prefix + "expression", getExpression()));
+	public List<SettingValueBean> toSettingValues(String providerId, @Nullable String instanceId,
+			String prefix) {
+		List<SettingValueBean> settings = new ArrayList<>(4);
+		addSetting(settings, providerId, instanceId, prefix + "name", getName());
+		addSetting(settings, providerId, instanceId, prefix + "datumPropertyTypeKey",
+				getDatumPropertyTypeKey());
+		addSetting(settings, providerId, instanceId, prefix + "expressionServiceId",
+				getExpressionServiceId());
+		addSetting(settings, providerId, instanceId, prefix + "expression", getExpression());
 		return settings;
+	}
+
+	private static void addSetting(List<SettingValueBean> settings, String providerId,
+			@Nullable String instanceId, String key, @Nullable Object val) {
+		if ( val == null ) {
+			return;
+		}
+		settings.add(new SettingValueBean(providerId, instanceId, key, val.toString()));
 	}
 
 	/**
