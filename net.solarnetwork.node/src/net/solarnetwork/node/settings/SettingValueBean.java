@@ -135,10 +135,10 @@ public class SettingValueBean implements SettingsUpdates.Change {
 	 *
 	 * @param settings
 	 *        the list to add a new {@link SettingValueBean} to
-	 * @param providerId
+	 * @param providerKey
 	 *        the provider key
-	 * @param instanceId
-	 *        the optional instance key
+	 * @param instanceKey
+	 *        the optionsl instance key
 	 * @param key
 	 *        the setting key
 	 * @param val
