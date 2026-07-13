@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.service.support;
 
+import static net.solarnetwork.node.settings.SettingValueBean.addSetting;
 import static net.solarnetwork.service.ExpressionService.getGeneralExpressionReferenceLink;
 import java.io.IOException;
 import java.io.InputStream;
@@ -196,14 +197,6 @@ public class ExpressionConfig extends DatumSamplePropertyConfig<String> {
 				getExpressionServiceId());
 		addSetting(settings, providerId, instanceId, prefix + "expression", getExpression());
 		return settings;
-	}
-
-	private static void addSetting(List<SettingValueBean> settings, String providerId,
-			@Nullable String instanceId, String key, @Nullable Object val) {
-		if ( val == null ) {
-			return;
-		}
-		settings.add(new SettingValueBean(providerId, instanceId, key, val.toString()));
 	}
 
 	/**

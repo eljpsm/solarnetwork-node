@@ -22,13 +22,14 @@
 
 package net.solarnetwork.node.settings;
 
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
  * An individual setting value.
  *
  * @author matt
- * @version 1.4
+ * @version 1.5
  */
 public class SettingValueBean implements SettingsUpdates.Change {
 
@@ -126,6 +127,31 @@ public class SettingValueBean implements SettingsUpdates.Change {
 		builder.append(value);
 		builder.append("}");
 		return builder.toString();
+	}
+
+	/**
+	 * Helper method to add non-null setting values to a list of
+	 * {@link SettingValueBean} instances.
+	 *
+	 * @param settings
+	 *        the list to add a new {@link SettingValueBean} to
+	 * @param providerId
+	 *        the provider key
+	 * @param instanceId
+	 *        the optional instance key
+	 * @param key
+	 *        the setting key
+	 * @param val
+	 *        the setting value; if {@code null} then no
+	 *        {@link SettingValueBean} will be added to {@code settings}
+	 * @since 1.5
+	 */
+	public static void addSetting(List<SettingValueBean> settings, String providerKey,
+			@Nullable String instanceKey, String key, @Nullable Object val) {
+		if ( val == null ) {
+			return;
+		}
+		settings.add(new SettingValueBean(providerKey, instanceKey, key, val.toString()));
 	}
 
 	/**
