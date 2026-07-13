@@ -163,7 +163,7 @@ public class SimpleReactorService implements ReactorService, InstructionHandler 
 							instruction.getTopic(), instruction.getId(), parentInstructionId), null)));
 			if ( updated ) {
 				log.info("Cancelled instruction {} because of {} on parent instruction {}",
-						child.getId(), instruction.getTopic(), instruction.getId(), parentInstructionId);
+						child.getId(), instruction.getTopic(), parentInstructionId);
 			}
 		}
 	}
