@@ -362,8 +362,8 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 	 * @param instructorConfigs
 	 *        the configs to use
 	 */
-	public final void setInstructorConfigs(InstructorConfig @Nullable [] instructionConfigs) {
-		this.instructorConfigs = instructionConfigs;
+	public final void setInstructorConfigs(InstructorConfig @Nullable [] instructorConfigs) {
+		this.instructorConfigs = instructorConfigs;
 	}
 
 	/**

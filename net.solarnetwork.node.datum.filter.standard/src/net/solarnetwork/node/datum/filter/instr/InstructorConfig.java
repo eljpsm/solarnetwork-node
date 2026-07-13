@@ -192,8 +192,6 @@ public class InstructorConfig {
 	/**
 	 * Generate a list of setting values.
 	 *
-	 * @param locationMode
-	 *        {@literal true} to generate location datum source settings
 	 * @param providerId
 	 *        the setting provider ID
 	 * @param instanceId
