@@ -25,7 +25,15 @@
 
 	<reference id="settingDao" interface="net.solarnetwork.node.dao.SettingDao"/>
 
+	<reference id="settingsService" interface="net.solarnetwork.node.settings.SettingsService"/>
+
 	<reference id="transientSettingDao" interface="net.solarnetwork.node.dao.TransientSettingDao"/>
+
+	<bean id="identityService" class="net.solarnetwork.common.osgi.service.DynamicServiceTracker">
+		<argument ref="bundleContext"/>
+		<property name="serviceClassName" value="net.solarnetwork.node.service.IdentityService"/>
+		<property name="sticky" value="true"/>
+	</bean>	
 
 	<bean id="datumMetadataService" class="net.solarnetwork.common.osgi.service.DynamicServiceTracker">
 		<argument ref="bundleContext"/>
@@ -1130,5 +1138,26 @@
 			<property name="localStateDao" ref="localStateDao"/>
 		</bean>
 	</osgix:managed-service-factory>
+
+	<service>
+		<interfaces>
+			<value>net.solarnetwork.settings.SettingSpecifierProvider</value>
+			<value>net.solarnetwork.node.settings.SettingResourceHandler</value>
+		</interfaces>
+		<bean class="net.solarnetwork.node.datum.filter.instr.InstructorDatumFilterServiceCsvConfigurer">
+			<argument ref="settingsService"/>
+			<argument ref="identityService"/>
+			<property name="messageSource">
+				<bean class="org.springframework.context.support.ResourceBundleMessageSource">
+					<property name="basenames">
+						<list>
+							<value>net.solarnetwork.node.datum.filter.instr.InstructorDatumFilterServiceCsvConfigurer</value>
+							<value>net.solarnetwork.service.support.BasicIdentifiable</value>
+						</list>
+					</property>
+				</bean>
+			</property>
+		</bean>
+	</service>
 
 </blueprint>

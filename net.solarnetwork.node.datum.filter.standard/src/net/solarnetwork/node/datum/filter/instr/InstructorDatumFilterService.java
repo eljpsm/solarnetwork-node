@@ -66,6 +66,9 @@ import net.solarnetwork.util.ArrayUtils;
 public class InstructorDatumFilterService extends BaseDatumFilterSupport
 		implements DatumFilterService, SettingSpecifierProvider {
 
+	/** The setting UID. */
+	public static final String SETTING_UID = "net.solarnetwork.node.datum.filter.instructor";
+
 	/**
 	 * The parameter name for an {@link Instruction} instance.
 	 */
@@ -86,7 +89,7 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 	 * @param instructionExecutionService
 	 *        the instruction execution service
 	 * @throws IllegalArgumentException
-	 *         if any argument is {@literal null}
+	 *         if any argument is {@code null}
 	 */
 	public InstructorDatumFilterService(
 			OptionalService<InstructionExecutionService> instructionExecutionService) {
@@ -304,7 +307,7 @@ public class InstructorDatumFilterService extends BaseDatumFilterSupport
 
 	@Override
 	public String getSettingUid() {
-		return "net.solarnetwork.node.datum.filter.instructor";
+		return SETTING_UID;
 	}
 
 	@Override

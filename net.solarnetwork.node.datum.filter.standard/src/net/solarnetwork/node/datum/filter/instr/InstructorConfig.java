@@ -22,11 +22,17 @@
 
 package net.solarnetwork.node.datum.filter.instr;
 
+import static java.lang.String.format;
 import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import net.solarnetwork.node.domain.Setting;
+import net.solarnetwork.node.settings.SettingValueBean;
 import net.solarnetwork.service.ExpressionService;
 import net.solarnetwork.service.support.ExpressionConfiguration;
 import net.solarnetwork.settings.SettingSpecifier;
@@ -42,6 +48,17 @@ import net.solarnetwork.util.ArrayUtils;
  * @since 4.5
  */
 public class InstructorConfig {
+
+	/**
+	 * A setting type pattern for a property configuration element.
+	 *
+	 * <p>
+	 * The pattern has two capture groups: the property configuration index and
+	 * the property setting name.
+	 * </p>
+	 */
+	public static final Pattern INSTRUCTOR_SETTING_PATTERN = Pattern
+			.compile("instructorConfigs\\[(\\d+)\\]\\.(.*)");
 
 	private final ExpressionConfiguration predicate;
 	private InstructionConfig @Nullable [] instructions;
@@ -96,7 +113,7 @@ public class InstructorConfig {
 	 *        a setting key prefix to use
 	 * @param expressionServices
 	 *        the available expression services
-	 * @return the settings, never {@literal null}
+	 * @return the settings, never {@code null}
 	 */
 	public List<SettingSpecifier> settings(final boolean template, final String prefix,
 			final Iterable<ExpressionService> expressionServices) {
@@ -125,12 +142,131 @@ public class InstructorConfig {
 	}
 
 	/**
+	 * Populate a setting as a property configuration value, if possible.
+	 *
+	 * @param config
+	 *        the filter configuration
+	 * @param setting
+	 *        the setting to try to handle
+	 * @return {@literal true} if the setting was handled as a property
+	 *         configuration value
+	 */
+	public static boolean populateFromSetting(InstructorDatumFilterServiceConfig config,
+			Setting setting) {
+		if ( "instructorConfigsCount".equals(setting.getType()) ) {
+			// return true so treated as handled by caller
+			return true;
+		}
+		final Matcher m = INSTRUCTOR_SETTING_PATTERN.matcher(setting.getType());
+		if ( !m.matches() ) {
+			return false;
+		}
+		final int idx = Integer.parseInt(m.group(1));
+		final String name = m.group(2);
+		final List<InstructorConfig> instructorConfigs = config.getInstructorConfigs();
+		if ( !(idx < instructorConfigs.size()) ) {
+			instructorConfigs.add(idx, new InstructorConfig());
+		}
+		final InstructorConfig instructorConfig = instructorConfigs.get(idx);
+
+		if ( InstructionConfig.populateFromSetting(instructorConfig, setting) ) {
+			return true;
+		}
+
+		String val = setting.getValue();
+		if ( val != null && !val.isEmpty() ) {
+			switch (name) {
+				case "predicate.expression":
+					instructorConfig.predicate.setExpression(val);
+					break;
+				case "predicate.expressionServiceId":
+					instructorConfig.predicate.setExpressionServiceId(val);
+					break;
+				default:
+					// ignore
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Generate a list of setting values.
+	 *
+	 * @param locationMode
+	 *        {@literal true} to generate location datum source settings
+	 * @param providerId
+	 *        the setting provider ID
+	 * @param instanceId
+	 *        the factory instance ID
+	 * @param instructorIdx
+	 *        the instructor index
+	 * @return the settings
+	 */
+	public List<SettingValueBean> toSettingValues(final String providerId, final String instanceId,
+			final int instructorIdx) {
+		List<SettingValueBean> settings = new ArrayList<>(8);
+		addSetting(settings, providerId, instanceId, instructorIdx, "predicate.expression",
+				predicate.getExpression());
+		addSetting(settings, providerId, instanceId, instructorIdx, "predicate.expressionServiceId",
+				predicate.getExpressionServiceId());
+
+		if ( instructions != null ) {
+			int i = 0;
+			for ( InstructionConfig instructionConfig : instructions ) {
+				settings.addAll(
+						instructionConfig.toSettingValues(providerId, instanceId, instructorIdx, i++));
+			}
+		}
+
+		return settings;
+	}
+
+	private static void addSetting(List<SettingValueBean> settings, String providerId,
+			@Nullable String instanceId, int i, String key, @Nullable Object val) {
+		if ( val == null ) {
+			return;
+		}
+		String fullKey = format("instructorConfigs[%d].%s", i, key);
+		SettingValueBean.addSetting(settings, providerId, instanceId, fullKey, val);
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("InstructorConfig{");
+		if ( predicate != null ) {
+			builder.append("predicate=");
+			builder.append(predicate);
+			builder.append(", ");
+		}
+		if ( instructions != null ) {
+			builder.append("instructions=");
+			builder.append(Arrays.toString(instructions));
+		}
+		builder.append("}");
+		return builder.toString();
+	}
+
+	/**
 	 * Get the predicate configuration.
 	 *
 	 * @return the predicate configuration
 	 */
 	public final ExpressionConfiguration getPredicate() {
 		return predicate;
+	}
+
+	/**
+	 * Add another instruction configuration.
+	 *
+	 * @param config
+	 *        the configuration to add
+	 */
+	public final void addInstruction(InstructionConfig config) {
+		final int newCount = getInstructionsCount() + 1;
+		setInstructionsCount(newCount);
+		final InstructionConfig[] configs = nonnull(instructions, "Instruction configs");
+		configs[newCount - 1] = config;
 	}
 
 	/**

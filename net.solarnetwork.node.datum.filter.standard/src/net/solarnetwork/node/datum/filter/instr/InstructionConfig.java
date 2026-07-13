@@ -22,11 +22,18 @@
 
 package net.solarnetwork.node.datum.filter.instr;
 
+import static java.lang.String.format;
+import static net.solarnetwork.util.ObjectUtils.nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import net.solarnetwork.node.domain.Setting;
 import net.solarnetwork.node.service.support.ExpressionConfig;
+import net.solarnetwork.node.settings.SettingValueBean;
 import net.solarnetwork.service.ExpressionService;
 import net.solarnetwork.settings.KeyedSettingSpecifier;
 import net.solarnetwork.settings.SettingSpecifier;
@@ -40,8 +47,44 @@ import net.solarnetwork.util.ArrayUtils;
  *
  * @author matt
  * @version 1.0
+ * @since 4.5
  */
 public class InstructionConfig {
+
+	/**
+	 * A setting type pattern for an instruction block configuration element.
+	 *
+	 * <p>
+	 * The pattern has two capture groups: the instruction configuration index
+	 * and the property setting name.
+	 * </p>
+	 */
+	public static final Pattern INSTRUCTION_SETTING_PATTERN = Pattern
+			.compile(".+".concat(Pattern.quote(".instructions[")).concat("(\\d+)\\]\\.(.*)"));
+
+	/**
+	 * A setting type pattern for an instruction parameter block configuration
+	 * element.
+	 *
+	 * <p>
+	 * The pattern has two capture groups: the instruction parameter
+	 * configuration index and the property setting name.
+	 * </p>
+	 */
+	public static final Pattern PARAMETER_SETTING_PATTERN = Pattern
+			.compile(".+".concat(Pattern.quote(".parameters[")).concat("(\\d+)\\]\\.(.*)"));
+
+	/**
+	 * A setting type pattern for an instruction parameter block configuration
+	 * element.
+	 *
+	 * <p>
+	 * The pattern has two capture groups: the instruction parameter
+	 * configuration index and the property setting name.
+	 * </p>
+	 */
+	public static final Pattern RESPONSE_SETTING_PATTERN = Pattern
+			.compile(".+".concat(Pattern.quote(".responses[")).concat("(\\d+)\\]\\.(.*)"));
 
 	private @Nullable String topic;
 	private ExpressionConfig @Nullable [] parameters;
@@ -84,7 +127,7 @@ public class InstructionConfig {
 	 *        a setting key prefix to use
 	 * @param expressionServices
 	 *        the available expression services
-	 * @return the settings, never {@literal null}
+	 * @return the settings, never {@code null}
 	 */
 	public List<SettingSpecifier> settings(final boolean template, final String prefix,
 			final Iterable<ExpressionService> expressionServices) {
@@ -133,6 +176,158 @@ public class InstructionConfig {
 	}
 
 	/**
+	 * Populate a setting as a configuration value, if possible.
+	 *
+	 * @param config
+	 *        the overall configuration
+	 * @param setting
+	 *        the setting to try to handle
+	 * @return {@code true} if the setting was handled as a property
+	 *         configuration value
+	 */
+	public static boolean populateFromSetting(InstructorConfig config, Setting setting) {
+		Matcher m = INSTRUCTION_SETTING_PATTERN.matcher(setting.getType());
+		if ( !m.matches() ) {
+			return false;
+		}
+		int idx = Integer.parseInt(m.group(1));
+		String name = m.group(2);
+		if ( idx >= config.getInstructionsCount() ) {
+			config.setInstructionsCount(idx + 1);
+		}
+
+		final InstructionConfig instructionConfig = nonnull(config.getInstructions(),
+				"Instruction configs")[idx];
+
+		if ( populateParameterFromSetting(instructionConfig, setting) ) {
+			return true;
+		} else if ( populateResponseFromSetting(instructionConfig, setting) ) {
+			return true;
+		}
+
+		String val = setting.getValue();
+		if ( val != null && !val.isEmpty() ) {
+			switch (name) {
+				case "topic":
+					instructionConfig.setTopic(val);
+					break;
+				default:
+					// ignore
+			}
+		}
+		return true;
+	}
+
+	private static boolean populateParameterFromSetting(InstructionConfig config, Setting setting) {
+		Matcher m = PARAMETER_SETTING_PATTERN.matcher(setting.getType());
+		if ( !m.matches() ) {
+			return false;
+		}
+		int idx = Integer.parseInt(m.group(1));
+		String name = m.group(2);
+		if ( idx >= config.getParametersCount() ) {
+			config.setParametersCount(idx + 1);
+		}
+
+		final ExpressionConfig parameterConfig = nonnull(config.getParameters(),
+				"Parameter configs")[idx];
+		parameterConfig.populateSetting(name, setting);
+		return true;
+	}
+
+	private static boolean populateResponseFromSetting(InstructionConfig config, Setting setting) {
+		Matcher m = RESPONSE_SETTING_PATTERN.matcher(setting.getType());
+		if ( !m.matches() ) {
+			return false;
+		}
+		int idx = Integer.parseInt(m.group(1));
+		String name = m.group(2);
+		if ( idx >= config.getResponsesCount() ) {
+			config.setResponsesCount(idx + 1);
+		}
+
+		final ExpressionConfig responseConfig = nonnull(config.getResponses(), "Response configs")[idx];
+		responseConfig.populateSetting(name, setting);
+		return true;
+	}
+
+	/**
+	 * Generate a list of setting values.
+	 *
+	 * @param providerId
+	 *        the setting provider ID
+	 * @param instanceId
+	 *        the factory instance ID
+	 * @param instructorIdx
+	 *        the unit configuration index
+	 * @param instructionIdx
+	 *        the block configuration index
+	 * @return the settings
+	 */
+	public List<SettingValueBean> toSettingValues(final String providerId,
+			final @Nullable String instanceId, final int instructorIdx, final int instructionIdx) {
+		List<SettingValueBean> settings = new ArrayList<>(2);
+		addSetting(settings, providerId, instanceId, instructorIdx, instructionIdx, "topic", getTopic());
+		if ( parameters != null ) {
+			int i = 0;
+			for ( ExpressionConfig paramConfig : parameters ) {
+				String prefix = format("instructorConfigs[%d].instructions[%d].parameters[%d].",
+						instructorIdx, instructionIdx, i++);
+				// remove the Property Type setting from the expression config, which does not apply for
+				// these instruction parameter expressions
+				List<SettingValueBean> paramSettings = paramConfig
+						.toSettingValues(providerId, instanceId, prefix).stream()
+						.filter(s -> !s.getKey().endsWith(".datumPropertyTypeKey")).toList();
+				settings.addAll(paramSettings);
+			}
+		}
+		if ( responses != null ) {
+			int i = 0;
+			for ( ExpressionConfig responseConfig : responses ) {
+				String prefix = format("instructorConfigs[%d].instructions[%d].responses[%d].",
+						instructorIdx, instructionIdx, i++);
+				List<SettingValueBean> responseSettings = responseConfig.toSettingValues(providerId,
+						instanceId, prefix);
+				settings.addAll(responseSettings);
+			}
+		}
+		return settings;
+	}
+
+	private static void addSetting(List<SettingValueBean> settings, String providerId,
+			@Nullable String instanceId, int instructorIdx, int instructionIdx, String key,
+			@Nullable Object val) {
+		if ( val == null ) {
+			return;
+		}
+		String fullKey = format("instructorConfigs[%d].instructions[%d].%s", instructorIdx,
+				instructionIdx, key);
+		SettingValueBean.addSetting(settings, providerId, instanceId, fullKey, val);
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("InstructionConfig{");
+		if ( topic != null ) {
+			builder.append("topic=");
+			builder.append(topic);
+			builder.append(", ");
+		}
+		if ( parameters != null ) {
+			builder.append("parameters=");
+			builder.append(Arrays.toString(parameters));
+			builder.append(", ");
+		}
+		if ( responses != null ) {
+			builder.append("responses=");
+			builder.append(Arrays.toString(responses));
+		}
+		builder.append("}");
+		return builder.toString();
+	}
+
+	/**
 	 * Get the instruction topic.
 	 *
 	 * @return the topic
@@ -149,6 +344,19 @@ public class InstructionConfig {
 	 */
 	public final void setTopic(@Nullable String topic) {
 		this.topic = topic;
+	}
+
+	/**
+	 * Add another parameter configuration.
+	 *
+	 * @param config
+	 *        the configuration to add
+	 */
+	public final void addParameter(ExpressionConfig config) {
+		final int newCount = getParametersCount() + 1;
+		setParametersCount(newCount);
+		final ExpressionConfig[] configs = nonnull(parameters, "Parameter configs");
+		configs[newCount - 1] = config;
 	}
 
 	/**
@@ -194,6 +402,19 @@ public class InstructionConfig {
 	 */
 	public final void setParameters(ExpressionConfig @Nullable [] parameters) {
 		this.parameters = parameters;
+	}
+
+	/**
+	 * Add another response configuration.
+	 *
+	 * @param config
+	 *        the configuration to add
+	 */
+	public final void addResponse(ExpressionConfig config) {
+		final int newCount = getResponsesCount() + 1;
+		setResponsesCount(newCount);
+		final ExpressionConfig[] configs = nonnull(responses, "Response configs");
+		configs[newCount - 1] = config;
 	}
 
 	/**

@@ -43,6 +43,7 @@ import net.solarnetwork.domain.datum.DatumSamples;
 import net.solarnetwork.domain.datum.DatumSamplesOperations;
 import net.solarnetwork.domain.datum.DatumSamplesType;
 import net.solarnetwork.node.dao.LocalStateDao;
+import net.solarnetwork.node.datum.filter.instr.InstructionConfig;
 import net.solarnetwork.node.datum.filter.instr.InstructorConfig;
 import net.solarnetwork.node.datum.filter.instr.InstructorDatumFilterService;
 import net.solarnetwork.node.domain.LocalState;
@@ -106,11 +107,13 @@ public class InstructorDatumFilterServiceTests {
 	public void generateDeferredInstruction_saveInstructionIdToLocalState() {
 		// GIVEN
 		final InstructorConfig config = new InstructorConfig();
-		config.setTopic(InstructionHandler.TOPIC_SIGNAL);
 		config.getPredicate().setExpression("""
 				%s == 1
 				""".formatted(INPUT_SIGNAL_PROP_NAME));
 		config.getPredicate().setExpressionServiceId(exprService.getUid());
+
+		final InstructionConfig instrConfig = new InstructionConfig();
+		instrConfig.setTopic(InstructionHandler.TOPIC_SIGNAL);
 
 		final ExpressionConfig signalParamConfig = new ExpressionConfig();
 		signalParamConfig.setName(InstructionHandler.PARAM_SERVICE);
@@ -123,14 +126,16 @@ public class InstructorDatumFilterServiceTests {
 				""".formatted(INPUT_SIGNAL_PROP_NAME));
 		signalInputParamConfig.setExpressionServiceId(exprService.getUid());
 
-		config.setParameters(new ExpressionConfig[] { signalParamConfig, signalInputParamConfig });
+		instrConfig.setParameters(new ExpressionConfig[] { signalParamConfig, signalInputParamConfig });
 
 		final ExpressionConfig saveInstructionIdResponseConfig = new ExpressionConfig();
 		saveInstructionIdResponseConfig.setExpression("""
 				saveLocalState("%s", instruction.id)
 				""".formatted(PRESENT_SIGNAL_INSTRUCTION_ID_LOCAL_STATE_KEY));
 		saveInstructionIdResponseConfig.setExpressionServiceId(exprService.getUid());
-		config.setResponses(new ExpressionConfig[] { saveInstructionIdResponseConfig });
+		instrConfig.setResponses(new ExpressionConfig[] { saveInstructionIdResponseConfig });
+
+		config.setInstructions(new InstructionConfig[] { instrConfig });
 
 		xform.setInstructorConfigs(new InstructorConfig[] { config });
 
@@ -164,7 +169,7 @@ public class InstructorDatumFilterServiceTests {
 			.as("Instruction generated")
 			.isNotNull()
 			.as("Instruction topic from config")
-			.returns(config.getTopic(), from(Instruction::getTopic))
+			.returns(instrConfig.getTopic(), from(Instruction::getTopic))
 			.extracting(Instruction::getParameterMap, map(String.class, String.class))
 			.containsExactlyInAnyOrderEntriesOf(Map.of(
 				InstructionHandler.PARAM_SERVICE, SIGNAL_SERVICE_UID,
@@ -187,17 +192,19 @@ public class InstructorDatumFilterServiceTests {
 	public void generateDeferredInstruction_saveResultAsDatumProp() {
 		// GIVEN
 		final InstructorConfig config = new InstructorConfig();
-		config.setTopic(InstructionHandler.TOPIC_SIGNAL);
 		config.getPredicate().setExpression("""
 				%s == 1
 				""".formatted(INPUT_SIGNAL_PROP_NAME));
 		config.getPredicate().setExpressionServiceId(exprService.getUid());
 
+		final InstructionConfig instrConfig = new InstructionConfig();
+		instrConfig.setTopic(InstructionHandler.TOPIC_SIGNAL);
+
 		final ExpressionConfig signalParamConfig = new ExpressionConfig();
 		signalParamConfig.setName(InstructionHandler.PARAM_SERVICE);
 		signalParamConfig.setExpression(SIGNAL_SERVICE_UID);
 
-		config.setParameters(new ExpressionConfig[] { signalParamConfig });
+		instrConfig.setParameters(new ExpressionConfig[] { signalParamConfig });
 
 		final ExpressionConfig resultResponseConfig = new ExpressionConfig();
 		resultResponseConfig.setPropertyKey(RESULT_PROP_NAME);
@@ -208,7 +215,9 @@ public class InstructorDatumFilterServiceTests {
 				: null
 				""".formatted(INSTRUCTION_STATUS_RESULT_PARAM_NAME));
 		resultResponseConfig.setExpressionServiceId(exprService.getUid());
-		config.setResponses(new ExpressionConfig[] { resultResponseConfig });
+		instrConfig.setResponses(new ExpressionConfig[] { resultResponseConfig });
+
+		config.setInstructions(new InstructionConfig[] { instrConfig });
 
 		xform.setInstructorConfigs(new InstructorConfig[] { config });
 
@@ -256,7 +265,7 @@ public class InstructorDatumFilterServiceTests {
 			.as("Instruction generated")
 			.isNotNull()
 			.as("Instruction topic from config")
-			.returns(config.getTopic(), from(Instruction::getTopic))
+			.returns(instrConfig.getTopic(), from(Instruction::getTopic))
 			.extracting(Instruction::getParameterMap, map(String.class, String.class))
 			.containsExactlyInAnyOrderEntriesOf(Map.of(
 				InstructionHandler.PARAM_SERVICE, SIGNAL_SERVICE_UID
