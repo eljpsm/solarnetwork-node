@@ -23,6 +23,7 @@ documentation:
    using an average
  * [Expression Datum Filter](README-Expression.md) - generate dynamic datum properties by evaluating
    expressions against existing datum properties
+ * [Instructor Datum Filter](README-Instructor.md) - issue dynamic local instructions
  * [Join Datum Filter](README-Join.md) - combine the properties of multiple datum streams into a
    single new stream
  * [Operational Mode Datum Filter](README-OpMode.md) - evaluate expressions to toggle operational
