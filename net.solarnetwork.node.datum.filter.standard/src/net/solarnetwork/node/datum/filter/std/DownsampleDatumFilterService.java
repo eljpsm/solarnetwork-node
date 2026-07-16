@@ -247,7 +247,7 @@ public class DownsampleDatumFilterService extends DatumFilterSupport
 	 * @return the status value
 	 */
 	public String statusValue() {
-		StringBuffer buf = new StringBuffer();
+		StringBuilder buf = new StringBuilder();
 		for ( Map.Entry<String, AggregateDatumSamples> me : subSamplesBySource.entrySet() ) {
 			if ( buf.length() > 0 ) {
 				buf.append(", ");

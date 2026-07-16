@@ -1,21 +1,21 @@
 /* ==================================================================
  * SolarCfgWifiConfiguration.java - 22/06/2020 5:09:13 PM
- * 
+ *
  * Copyright 2020 SolarNetwork.net Dev Team
- * 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License as 
- * published by the Free Software Foundation; either version 2 of 
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307 USA
  * ==================================================================
  */
@@ -51,7 +51,7 @@ import net.solarnetwork.util.StringUtils;
 
 /**
  * Settings provider for WiFi.
- * 
+ *
  * @author matt
  * @version 2.1
  */
@@ -65,21 +65,21 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 	/**
 	 * The country instruction parameter.
-	 * 
+	 *
 	 * @since 2.1
 	 */
 	public static final String PARAM_COUNTRY = "country";
 
 	/**
 	 * The SSID instruction parameter.
-	 * 
+	 *
 	 * @since 2.1
 	 */
 	public static final String PARAM_SSID = "ssid";
 
 	/**
 	 * The password instruction parameter.
-	 * 
+	 *
 	 * @since 2.1
 	 */
 	public static final String PARAM_PASSWORD = "password";
@@ -87,7 +87,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 	/**
 	 * The {@literal service} instruction parameter value for WiFi
 	 * configuration.
-	 * 
+	 *
 	 * @since 2.1
 	 */
 	public static final String WIFI_SERVICE_NAME = "/setup/network/wifi";
@@ -212,7 +212,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 	}
 
 	private String statusMessage(Status status) {
-		StringBuffer buf = new StringBuffer();
+		StringBuilder buf = new StringBuilder();
 		MessageSource messageSource = getMessageSource();
 		if ( messageSource != null ) {
 			if ( status.active ) {
@@ -268,7 +268,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 		/**
 		 * Get the WiFi active status.
-		 * 
+		 *
 		 * @return {@literal true} if WiFi is active
 		 */
 		public boolean isActive() {
@@ -277,7 +277,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 		/**
 		 * Get the WiFi IP address(es).
-		 * 
+		 *
 		 * @return the IP address(es) assigned to WiFi
 		 */
 		public List<String> getAddresses() {
@@ -321,7 +321,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 	/**
 	 * Update the WiFi configuration.
-	 * 
+	 *
 	 * @return the output of the configured command
 	 */
 	public List<String> updateConfiguration() {
@@ -369,7 +369,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 	/**
 	 * Set the command to use.
-	 * 
+	 *
 	 * @param command
 	 *        the command to set; defaults to {@link #DEFAULT_COMMAND}
 	 */
@@ -379,7 +379,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 	/**
 	 * Set the WiFi country code.
-	 * 
+	 *
 	 * @param country
 	 *        the country to set
 	 */
@@ -389,7 +389,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 	/**
 	 * Set the WiFi SSID to connect to.
-	 * 
+	 *
 	 * @param ssid
 	 *        the SSID to set
 	 */
@@ -399,7 +399,7 @@ public class SolarCfgWifiConfiguration extends BaseIdentifiable
 
 	/**
 	 * Set the WiFi password to use.
-	 * 
+	 *
 	 * @param password
 	 *        the password to set
 	 */
