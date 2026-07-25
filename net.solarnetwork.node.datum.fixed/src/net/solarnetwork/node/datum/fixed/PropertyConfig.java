@@ -109,9 +109,11 @@ public class PropertyConfig extends DatumSamplePropertyConfig<String> {
 		if ( propType == null || val == null ) {
 			return val;
 		}
+		// try to treat as a number
+		final Number n = NumberUtils.parseNumber(val.toString());
 		return switch (propType) {
-			case Instantaneous, Accumulating -> NumberUtils.parseNumber(val.toString());
-			default -> !val.isEmpty() ? val : null;
+			case Instantaneous, Accumulating -> n;
+			default -> n != null ? n : !val.isEmpty() ? val : null;
 		};
 	}
 
