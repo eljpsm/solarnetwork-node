@@ -70,7 +70,7 @@ import net.solarnetwork.util.CollectionUtils;
  * </p>
  *
  * @author matt
- * @version 2.9
+ * @version 2.10
  * @since 1.79
  */
 public class ExpressionRoot extends DatumSamplesExpressionRoot
@@ -351,6 +351,45 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	}
 
 	/**
+	 * Extract a property value from the latest datum matching a specific source
+	 * ID.
+	 *
+	 * <p>
+	 * This is equivalent to calling
+	 * {@code offset(sourceId, 0, timestamp).get(key)}.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID to find
+	 * @param timestamp
+	 *        the timestamp to reference the offset from
+	 * @return the extracted property from the matching datum, or {@code null}
+	 *         if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object latestProp(String sourceId, Object key) {
+		return latestProp(sourceId, key, null);
+	}
+
+	/**
+	 * Extract a property value from the latest datum matching a specific source
+	 * ID.
+	 *
+	 * <p>
+	 * This is equivalent to calling {@code offset(sourceId, 0).get(key)}.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID to find
+	 * @return the extracted property from the matching datum, or
+	 *         {@code fallback} if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object latestProp(String sourceId, Object key, Object fallback) {
+		return offsetProp(datumService, sourceId, 0, key, fallback);
+	}
+
+	/**
 	 * Get the latest available unfiltered datum for a given source ID, as an
 	 * {@link DatumExpressionRoot}.
 	 *
@@ -370,6 +409,49 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 */
 	public @Nullable DatumExpressionRoot unfilteredLatest(String sourceId) {
 		return unfilteredOffset(sourceId, 0);
+	}
+
+	/**
+	 * Extract a property value from the latest available unfiltered datum for a
+	 * given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param key
+	 *        the property name to extract
+	 * @return the extracted property value, or {@code null} if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object unfilteredLatestProp(String sourceId, Object key) {
+		return unfilteredOffsetProp(sourceId, 0, key, null);
+	}
+
+	/**
+	 * Extract a property value from the latest available unfiltered datum for a
+	 * given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param key
+	 *        the property name to extract
+	 * @param fallback
+	 *        the value to return if the property is not available
+	 * @return the extracted property value, or {@code fallback} if not
+	 *         available
+	 * @since 2.10
+	 */
+	public @Nullable Object unfilteredLatestProp(String sourceId, Object key, Object fallback) {
+		return unfilteredOffsetProp(sourceId, 0, key, fallback);
 	}
 
 	/**
@@ -1050,6 +1132,57 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	}
 
 	/**
+	 * Extract a property from an offset from latest available datum for a given
+	 * source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property name to extract
+	 * @param fallback
+	 *        the value to return if the property is not available
+	 * @return the extracted property, or {@code null} if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object offsetProp(@Nullable String sourceId, int offset, Object key) {
+		return offsetProp(datumService, sourceId, offset, key, null);
+	}
+
+	/**
+	 * Extract a property from an offset from latest available datum for a given
+	 * source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property name to extract
+	 * @param fallback
+	 *        the value to return if the property is not available
+	 * @return the extracted property, or {@code fallback} if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object offsetProp(@Nullable String sourceId, int offset, Object key,
+			@Nullable Object fallback) {
+		return offsetProp(datumService, sourceId, offset, key, fallback);
+	}
+
+	/**
 	 * Get an offset from latest available unfiltered datum for a given source
 	 * ID, as an {@link DatumExpressionRoot}.
 	 *
@@ -1074,16 +1207,81 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 		return offset(datumService != null ? datumService.unfiltered() : null, sourceId, offset);
 	}
 
+	/**
+	 * Extract a property from an offset from latest available unfiltered datum
+	 * for a given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property name to extract
+	 * @param fallback
+	 *        the value to return if the property is not available
+	 * @return the extracted property or {@code null} if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object unfilteredOffsetProp(@Nullable String sourceId, int offset, Object key) {
+		return offsetProp(datumService != null ? datumService.unfiltered() : null, sourceId, offset, key,
+				null);
+	}
+
+	/**
+	 * Extract a property from an offset from latest available unfiltered datum
+	 * for a given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property name to extract
+	 * @param fallback
+	 *        the value to return if the property is not available
+	 * @return the extracted property or {@code fallback} if not available
+	 * @since 2.10
+	 */
+	public @Nullable Object unfilteredOffsetProp(@Nullable String sourceId, int offset, Object key,
+			@Nullable Object fallback) {
+		return offsetProp(datumService != null ? datumService.unfiltered() : null, sourceId, offset, key,
+				fallback);
+	}
+
 	private @Nullable DatumExpressionRoot offset(@Nullable DatumHistorian history,
 			@Nullable String sourceId, int offset) {
-		if ( history == null || sourceId == null ) {
-			return null;
-		}
-		NodeDatum d = history.offset(sourceId, offset, NodeDatum.class);
+		NodeDatum d = offsetDatum(history, sourceId, offset);
 		if ( d == null ) {
 			return null;
 		}
 		return copyWith(d);
+	}
+
+	private @Nullable NodeDatum offsetDatum(@Nullable DatumHistorian history, @Nullable String sourceId,
+			int offset) {
+		if ( history == null || sourceId == null ) {
+			return null;
+		}
+		return history.offset(sourceId, offset, NodeDatum.class);
+	}
+
+	private @Nullable Object offsetProp(@Nullable DatumHistorian history, @Nullable String sourceId,
+			int offset, Object key, @Nullable Object fallback) {
+		NodeDatum d = offsetDatum(history, sourceId, offset);
+		Object result = (d != null ? d.asSampleOperations().findSampleValue(key.toString()) : null);
+		return (result != null ? result : fallback);
 	}
 
 	/**
@@ -1174,6 +1372,62 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	}
 
 	/**
+	 * Extract a property value from a datum offset from a given timestamp for a
+	 * given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param timestamp
+	 *        the timestamp reference point
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property to extract from the offset datum
+	 * @return the property extracted from the datum offset from the latest
+	 *         datum, or {@code null} if the property is not available
+	 * @since 2.10
+	 */
+	public @Nullable Object offsetProp(@Nullable String sourceId, @Nullable Instant timestamp,
+			int offset, String key) {
+		return offsetProp(sourceId, timestamp, offset, key, null);
+	}
+
+	/**
+	 * Extract a property value from a datum offset from a given timestamp for a
+	 * given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param timestamp
+	 *        the timestamp reference point
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property to extract from the offset datum
+	 * @param fallback
+	 *        a fallback value to return if the property is not available
+	 * @return the property extracted from the datum offset from the latest
+	 *         datum, or {@code fallback} if the property is not available
+	 * @since 2.10
+	 */
+	public @Nullable Object offsetProp(@Nullable String sourceId, @Nullable Instant timestamp,
+			int offset, String key, Object fallback) {
+		return offsetProp(datumService, sourceId, timestamp, offset, key, fallback);
+	}
+
+	/**
 	 * Get an unfiltered datum offset from a given timestamp for a given source
 	 * ID, as an {@link DatumExpressionRoot}.
 	 *
@@ -1202,16 +1456,85 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 				offset);
 	}
 
+	/**
+	 * Extract a property value from an unfiltered datum offset from a given
+	 * timestamp for a given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param timestamp
+	 *        the timestamp reference point
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property to extract from the offset datum
+	 * @return the property extracted from the datum offset from the latest
+	 *         datum, or {@code null} if the property is not available
+	 * @since 2.10
+	 */
+	public @Nullable Object unfilteredOffsetProp(@Nullable String sourceId, @Nullable Instant timestamp,
+			int offset, String key) {
+		return unfilteredOffsetProp(sourceId, timestamp, offset, key, null);
+	}
+
+	/**
+	 * Extract a property value from an unfiltered datum offset from a given
+	 * timestamp for a given source ID.
+	 *
+	 * <p>
+	 * Note a non-null {@link DatumService} instance must have been provided to
+	 * the constructor of this instance for this method to work.
+	 * </p>
+	 *
+	 * @param sourceId
+	 *        the source ID of the datum to look for
+	 * @param timestamp
+	 *        the timestamp reference point
+	 * @param offset
+	 *        the offset from the latest, {@literal 0} being the latest and
+	 *        {@literal 1} the next later, and so on
+	 * @param key
+	 *        the property to extract from the offset datum
+	 * @param fallback
+	 *        a fallback value to return if the property is not available
+	 * @return the property extracted from the datum offset from the latest
+	 *         datum, or {@code fallback} if the property is not available
+	 * @since 2.10
+	 */
+	public @Nullable Object unfilteredOffsetProp(@Nullable String sourceId, @Nullable Instant timestamp,
+			int offset, String key, Object fallback) {
+		return offsetProp(datumService != null ? datumService.unfiltered() : null, sourceId, timestamp,
+				offset, key, fallback);
+	}
+
 	private @Nullable DatumExpressionRoot offset(@Nullable DatumHistorian history,
 			@Nullable String sourceId, @Nullable Instant timestamp, int offset) {
-		if ( history == null || sourceId == null || timestamp == null ) {
-			return null;
-		}
-		NodeDatum d = history.offset(sourceId, timestamp, offset, NodeDatum.class);
+		NodeDatum d = offsetDatum(history, sourceId, timestamp, offset);
 		if ( d == null ) {
 			return null;
 		}
 		return copyWith(d);
+	}
+
+	private @Nullable NodeDatum offsetDatum(@Nullable DatumHistorian history, @Nullable String sourceId,
+			@Nullable Instant timestamp, int offset) {
+		if ( history == null || sourceId == null || timestamp == null ) {
+			return null;
+		}
+		return history.offset(sourceId, timestamp, offset, NodeDatum.class);
+	}
+
+	private @Nullable Object offsetProp(@Nullable DatumHistorian history, @Nullable String sourceId,
+			@Nullable Instant timestamp, int offset, Object key, Object fallback) {
+		NodeDatum d = offsetDatum(history, sourceId, timestamp, offset);
+		Object result = (d != null ? d.asSampleOperations().findSampleValue(key.toString()) : null);
+		return (result != null ? result : fallback);
 	}
 
 	/**

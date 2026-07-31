@@ -26,6 +26,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
 import static net.solarnetwork.domain.datum.DatumSamplesType.Accumulating;
 import static net.solarnetwork.domain.datum.DatumSamplesType.Instantaneous;
+import static org.assertj.core.api.BDDAssertions.then;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -220,6 +221,90 @@ public class ExpressionRootTests {
 	}
 
 	@Test
+	public void latestProp() {
+		// GIVEN
+		SimpleDatum other = SimpleDatum.nodeDatum("bar");
+		other.putSampleValue(Instantaneous, "aa", 100);
+
+		expect(datumService.offset("bar", 0, NodeDatum.class)).andReturn(other);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("latestProp('bar', 'aa')", null, root,
+				null, Integer.class);
+
+		// THEN
+		then(result).as("'aa' prop on latest datum resolved").isEqualTo(100);
+	}
+
+	@Test
+	public void latestProp_noDatum() {
+		// GIVEN
+		expect(datumService.offset("bar", 0, NodeDatum.class)).andReturn(null);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("latestProp('bar', 'aa')", null, root,
+				null, Integer.class);
+
+		// THEN
+		then(result).as("'aa' prop on latest datum not resolved because datum missing").isNull();
+	}
+
+	@Test
+	public void latestProp_noDatum_fallback() {
+		// GIVEN
+		expect(datumService.offset("bar", 0, NodeDatum.class)).andReturn(null);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("latestProp('bar', 'aa', -1)", null, root,
+				null, Integer.class);
+
+		// THEN
+		then(result).as("fallback value resolved because datum missing").isEqualTo(-1);
+	}
+
+	@Test
+	public void latestProp_noProperty() {
+		// GIVEN
+		SimpleDatum other = SimpleDatum.nodeDatum("bar");
+		other.putSampleValue(Instantaneous, "bb", 100);
+
+		expect(datumService.offset("bar", 0, NodeDatum.class)).andReturn(other);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("latestProp('bar', 'aa')", null, root,
+				null, Integer.class);
+
+		// THEN
+		then(result).as("'aa' prop on latest datum not resolved because property missing").isNull();
+	}
+
+	@Test
+	public void latestProp_noProperty_fallback() {
+		// GIVEN
+		SimpleDatum other = SimpleDatum.nodeDatum("bar");
+		other.putSampleValue(Instantaneous, "bb", 100);
+
+		expect(datumService.offset("bar", 0, NodeDatum.class)).andReturn(other);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("latestProp('bar', 'aa', -1)", null, root,
+				null, Integer.class);
+
+		// THEN
+		then(result).as("fallback value resolved because property missing").isEqualTo(-1);
+	}
+
+	@Test
 	public void unfilteredLatest() {
 		// GIVEN
 		SimpleDatum other = SimpleDatum.nodeDatum("bar");
@@ -236,6 +321,61 @@ public class ExpressionRootTests {
 
 		// THEN
 		assertThat("Expression resolves latest unfiltered datum", result, is(103));
+	}
+
+	@Test
+	public void unfilteredLatestProp() {
+		// GIVEN
+		SimpleDatum other = SimpleDatum.nodeDatum("bar");
+		other.putSampleValue(Instantaneous, "aa", 100);
+
+		expect(datumService.unfiltered()).andReturn(unfilteredDatumHistorian);
+		expect(unfilteredDatumHistorian.offset("bar", 0, NodeDatum.class)).andReturn(other);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("unfilteredLatestProp('bar', 'aa')", null,
+				root, null, Integer.class);
+
+		// THEN
+		then(result).as("'aa' property resolved from unfiltered datum").isEqualTo(100);
+	}
+
+	@Test
+	public void unfilteredLatestProp_noDatum_fallback() {
+		// GIVEN
+		expect(datumService.unfiltered()).andReturn(unfilteredDatumHistorian);
+		expect(unfilteredDatumHistorian.offset("bar", 0, NodeDatum.class)).andReturn(null);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("unfilteredLatestProp('bar', 'aa', -1)",
+				null, root, null, Integer.class);
+
+		// THEN
+		then(result).as("fallback resolved from unfiltered datum as datum not available").isEqualTo(-1);
+	}
+
+	@Test
+	public void unfilteredLatestProp_noProperty_fallback() {
+		// GIVEN
+		SimpleDatum other = SimpleDatum.nodeDatum("bar");
+		other.putSampleValue(Instantaneous, "aa", 100);
+
+		expect(datumService.unfiltered()).andReturn(unfilteredDatumHistorian);
+		expect(unfilteredDatumHistorian.offset("bar", 0, NodeDatum.class)).andReturn(other);
+
+		// WHEN
+		replayAll();
+		ExpressionRoot root = createTestRoot();
+		Integer result = expressionService.evaluateExpression("unfilteredLatestProp('bar', 'bb', -1)",
+				null, root, null, Integer.class);
+
+		// THEN
+		then(result).as("fallback resolved from unfiltered datum as property not available")
+				.isEqualTo(-1);
 	}
 
 	@Test
