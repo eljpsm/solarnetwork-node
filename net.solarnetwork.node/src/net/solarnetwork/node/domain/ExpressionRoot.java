@@ -361,8 +361,8 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 *
 	 * @param sourceId
 	 *        the source ID to find
-	 * @param timestamp
-	 *        the timestamp to reference the offset from
+	 * @param key
+	 *        the property name to extract
 	 * @return the extracted property from the matching datum, or {@code null}
 	 *         if not available
 	 * @since 2.10
@@ -381,11 +381,15 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 *
 	 * @param sourceId
 	 *        the source ID to find
+	 * @param key
+	 *        the property name to extract
+	 * @param fallback
+	 *        the value to return if the property is not available
 	 * @return the extracted property from the matching datum, or
 	 *         {@code fallback} if not available
 	 * @since 2.10
 	 */
-	public @Nullable Object latestProp(String sourceId, Object key, Object fallback) {
+	public @Nullable Object latestProp(String sourceId, Object key, @Nullable Object fallback) {
 		return offsetProp(datumService, sourceId, 0, key, fallback);
 	}
 
@@ -1423,7 +1427,7 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 * @since 2.10
 	 */
 	public @Nullable Object offsetProp(@Nullable String sourceId, @Nullable Instant timestamp,
-			int offset, String key, Object fallback) {
+			int offset, String key, @Nullable Object fallback) {
 		return offsetProp(datumService, sourceId, timestamp, offset, key, fallback);
 	}
 
@@ -1508,7 +1512,7 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 * @since 2.10
 	 */
 	public @Nullable Object unfilteredOffsetProp(@Nullable String sourceId, @Nullable Instant timestamp,
-			int offset, String key, Object fallback) {
+			int offset, String key, @Nullable Object fallback) {
 		return offsetProp(datumService != null ? datumService.unfiltered() : null, sourceId, timestamp,
 				offset, key, fallback);
 	}
@@ -1531,7 +1535,7 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	}
 
 	private @Nullable Object offsetProp(@Nullable DatumHistorian history, @Nullable String sourceId,
-			@Nullable Instant timestamp, int offset, Object key, Object fallback) {
+			@Nullable Instant timestamp, int offset, Object key, @Nullable Object fallback) {
 		NodeDatum d = offsetDatum(history, sourceId, timestamp, offset);
 		Object result = (d != null ? d.asSampleOperations().findSampleValue(key.toString()) : null);
 		return (result != null ? result : fallback);
