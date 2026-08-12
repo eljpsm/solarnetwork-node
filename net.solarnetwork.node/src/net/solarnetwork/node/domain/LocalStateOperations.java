@@ -22,6 +22,7 @@
 
 package net.solarnetwork.node.domain;
 
+import java.time.Instant;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
@@ -29,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  * Operations to work with {@link LocalState} entities.
  *
  * @author matt
- * @version 1.0
+ * @version 1.1
  * @since 3.23
  */
 public interface LocalStateOperations {
@@ -67,6 +68,18 @@ public interface LocalStateOperations {
 	 */
 	@Nullable
 	Object localState(String key, @Nullable Object defaultValue);
+
+	/**
+	 * Get the modification date of a local state value.
+	 *
+	 * @param key
+	 *        the key of the state to get the modification date of
+	 * @return the modification date, or {@code null} if no local state
+	 *         available for the given {@code key}
+	 * @since 1.1
+	 */
+	@Nullable
+	Instant localStateModificationDate(String key);
 
 	/**
 	 * Save a local state value.

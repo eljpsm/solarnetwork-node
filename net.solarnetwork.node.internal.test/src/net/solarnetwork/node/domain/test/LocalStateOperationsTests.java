@@ -25,7 +25,9 @@ package net.solarnetwork.node.domain.test;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import net.solarnetwork.node.domain.LocalStateOperations;
 import net.solarnetwork.node.domain.LocalStateType;
@@ -39,6 +41,11 @@ import net.solarnetwork.node.domain.LocalStateType;
 public class LocalStateOperationsTests {
 
 	private class TestLocalStateOperations implements LocalStateOperations {
+
+		@Override
+		public @Nullable Instant localStateModificationDate(String key) {
+			throw new UnsupportedOperationException();
+		}
 
 		@Override
 		public Object localState(String key, Object defaultValue) {

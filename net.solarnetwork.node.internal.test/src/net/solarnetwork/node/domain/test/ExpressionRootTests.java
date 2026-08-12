@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.Temporal;
@@ -54,7 +55,9 @@ import net.solarnetwork.domain.datum.GeneralDatumMetadata;
 import net.solarnetwork.domain.tariff.SimpleTariffRate;
 import net.solarnetwork.domain.tariff.SimpleTemporalTariffSchedule;
 import net.solarnetwork.domain.tariff.TemporalRangeSetsTariff;
+import net.solarnetwork.node.dao.LocalStateDao;
 import net.solarnetwork.node.domain.ExpressionRoot;
+import net.solarnetwork.node.domain.LocalState;
 import net.solarnetwork.node.domain.datum.NodeDatum;
 import net.solarnetwork.node.domain.datum.SimpleDatum;
 import net.solarnetwork.node.service.DatumHistorian;
@@ -63,13 +66,14 @@ import net.solarnetwork.node.service.MetadataService;
 import net.solarnetwork.node.service.OperationalModesService;
 import net.solarnetwork.node.service.TariffScheduleProvider;
 import net.solarnetwork.service.ExpressionService;
+import net.solarnetwork.service.StaticOptionalService;
 import net.solarnetwork.service.StaticOptionalServiceCollection;
 
 /**
  * Test cases for the {@link ExpressionRoot} class.
  *
  * @author matt
- * @version 1.3
+ * @version 1.4
  */
 public class ExpressionRootTests {
 
@@ -78,6 +82,7 @@ public class ExpressionRootTests {
 	private OperationalModesService opModesService;
 	private MetadataService metadataService;
 	private TariffScheduleProvider tariffScheduleProvider;
+	private LocalStateDao localStateDao;
 	private ExpressionService expressionService = new SpelExpressionService();
 
 	@Before
@@ -87,26 +92,28 @@ public class ExpressionRootTests {
 		opModesService = EasyMock.createMock(OperationalModesService.class);
 		metadataService = EasyMock.createMock(MetadataService.class);
 		tariffScheduleProvider = EasyMock.createMock(TariffScheduleProvider.class);
+		localStateDao = EasyMock.createMock(LocalStateDao.class);
 	}
 
 	@After
 	public void teardown() {
 		EasyMock.verify(datumService, unfilteredDatumHistorian, opModesService, metadataService,
-				tariffScheduleProvider);
+				tariffScheduleProvider, localStateDao);
 	}
 
 	private void replayAll() {
 		EasyMock.replay(datumService, unfilteredDatumHistorian, opModesService, metadataService,
-				tariffScheduleProvider);
+				tariffScheduleProvider, localStateDao);
 	}
 
 	private ExpressionRoot createTestRoot() {
-		return createTestRoot(datumService, opModesService, metadataService, tariffScheduleProvider);
+		return createTestRoot(datumService, opModesService, metadataService, tariffScheduleProvider,
+				localStateDao);
 	}
 
 	private static ExpressionRoot createTestRoot(DatumService datumService,
 			OperationalModesService opModesService, MetadataService metadataService,
-			TariffScheduleProvider tariffScheduleProvider) {
+			TariffScheduleProvider tariffScheduleProvider, LocalStateDao localStateDao) {
 		SimpleDatum d = SimpleDatum.nodeDatum("foo");
 		d.putSampleValue(Instantaneous, "a", 3);
 		d.putSampleValue(Instantaneous, "b", 5);
@@ -128,6 +135,7 @@ public class ExpressionRootTests {
 		ExpressionRoot r = new ExpressionRoot(d, s, p, datumService, opModesService, metadataService);
 		r.setTariffScheduleProviders(
 				new StaticOptionalServiceCollection<>(Collections.singleton(tariffScheduleProvider)));
+		r.setLocalStateDao(new StaticOptionalService<>(localStateDao));
 		return r;
 	}
 
@@ -515,7 +523,7 @@ public class ExpressionRootTests {
 
 		// WHEN
 		replayAll();
-		ExpressionRoot root = createTestRoot(datumService, null, null, null);
+		ExpressionRoot root = createTestRoot(datumService, null, null, null, null);
 		Boolean result = expressionService.evaluateExpression("isOpMode('foo')", null, root, null,
 				Boolean.class);
 
@@ -740,6 +748,67 @@ public class ExpressionRootTests {
 		// THEN
 		assertThat("Result is LocalDate for following Monday", result,
 				is(equalTo(LocalDate.of(2024, 8, 19))));
+	}
+
+	@Test
+	public void localStateModificationDate_stateNotAvailable() {
+		// GIVEN
+		final ExpressionRoot root = createTestRoot();
+		expect(localStateDao.get("foo")).andReturn(null);
+
+		// WHEN
+		replayAll();
+		final Instant result = expressionService.evaluateExpression("""
+				localStateModificationDate("foo")
+				""", null, root, null, Instant.class);
+
+		// THEN
+		then(result).as("Null returned when no local state available").isNull();
+	}
+
+	@Test
+	public void localStateModificationDate_stateAvailable_createdDate() {
+		// GIVEN
+		final ExpressionRoot root = createTestRoot();
+		final LocalState state = new LocalState("foo", Instant.now());
+		expect(localStateDao.get("foo")).andReturn(state);
+
+		// WHEN
+		replayAll();
+		final Instant result = expressionService.evaluateExpression("""
+				localStateModificationDate("foo")
+				""", null, root, null, Instant.class);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("LocalState entity created date returned when no modification date available")
+			.isSameAs(state.getCreated())
+			;
+		// @formatter:on
+	}
+
+	@Test
+	public void localStateModificationDate_stateAvailable_modifiedDate() {
+		// GIVEN
+		final ExpressionRoot root = createTestRoot();
+		final LocalState state = new LocalState("foo", Instant.now());
+		state.setModified(state.getCreated().plusSeconds(1));
+		expect(localStateDao.get("foo")).andReturn(state);
+
+		// WHEN
+		replayAll();
+		final Instant result = expressionService.evaluateExpression("""
+				localStateModificationDate("foo")
+				""", null, root, null, Instant.class);
+
+		// THEN
+		// @formatter:off
+		then(result)
+			.as("LocalState entity modified date returned when available")
+			.isSameAs(state.getModified())
+			;
+		// @formatter:on
 	}
 
 }

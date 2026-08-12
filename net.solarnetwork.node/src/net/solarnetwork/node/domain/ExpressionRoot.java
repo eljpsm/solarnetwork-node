@@ -70,7 +70,7 @@ import net.solarnetwork.util.CollectionUtils;
  * </p>
  *
  * @author matt
- * @version 2.10
+ * @version 2.11
  * @since 1.79
  */
 public class ExpressionRoot extends DatumSamplesExpressionRoot
@@ -1151,8 +1151,6 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 *        {@literal 1} the next later, and so on
 	 * @param key
 	 *        the property name to extract
-	 * @param fallback
-	 *        the value to return if the property is not available
 	 * @return the extracted property, or {@code null} if not available
 	 * @since 2.10
 	 */
@@ -1227,8 +1225,6 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	 *        {@literal 1} the next later, and so on
 	 * @param key
 	 *        the property name to extract
-	 * @param fallback
-	 *        the value to return if the property is not available
 	 * @return the extracted property or {@code null} if not available
 	 * @since 2.10
 	 */
@@ -1896,6 +1892,13 @@ public class ExpressionRoot extends DatumSamplesExpressionRoot
 	public @Nullable Object localState(String key, @Nullable Object defaultValue) {
 		LocalState state = localStateDao().get(key);
 		return (state != null ? state.getValue() : defaultValue);
+	}
+
+	@Override
+	public @Nullable Instant localStateModificationDate(String key) {
+		LocalState state = localStateDao().get(key);
+		return (state == null ? null
+				: state.getModified() != null ? state.getModified() : state.getCreated());
 	}
 
 	@Override
