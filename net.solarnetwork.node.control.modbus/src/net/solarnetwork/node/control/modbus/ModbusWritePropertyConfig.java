@@ -44,7 +44,7 @@ import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
  * Configuration for a single control property to be set via Modbus.
  *
  * @author matt
- * @version 2.2
+ * @version 2.3
  */
 public class ModbusWritePropertyConfig {
 
@@ -85,6 +85,7 @@ public class ModbusWritePropertyConfig {
 	private Integer address;
 	private NodeControlPropertyType controlPropertyType;
 	private @Nullable String controlId;
+	private @Nullable String controlPropertyName;
 	private ModbusWriteFunction function;
 	private ModbusDataType dataType;
 	private Integer wordLength;
@@ -345,6 +346,9 @@ public class ModbusWritePropertyConfig {
 				case "decimalScale":
 					propConfig.setDecimalScale(Integer.valueOf(val));
 					break;
+				case "controlPropertyName":
+					propConfig.setControlPropertyName(val);
+					break;
 				default:
 					// ignore
 			}
@@ -360,16 +364,17 @@ public class ModbusWritePropertyConfig {
 	 * @return the settings
 	 */
 	public static List<SettingSpecifier> settings(String prefix) {
-		List<SettingSpecifier> results = new ArrayList<SettingSpecifier>();
+		List<SettingSpecifier> results = new ArrayList<>();
 
 		ModbusWritePropertyConfig defaults = new ModbusWritePropertyConfig();
 
 		results.add(new BasicTextFieldSettingSpecifier(prefix + "controlId", ""));
+		results.add(new BasicTextFieldSettingSpecifier(prefix + "controlPropertyName", ""));
 
 		// drop-down menu for controlPropertyType
 		BasicMultiValueSettingSpecifier propTypeSpec = new BasicMultiValueSettingSpecifier(
 				prefix + "controlPropertyTypeKey", defaults.getControlPropertyTypeKey());
-		Map<String, String> propTypeTitles = new LinkedHashMap<String, String>(3);
+		Map<String, String> propTypeTitles = new LinkedHashMap<>(3);
 		for ( NodeControlPropertyType e : NodeControlPropertyType.values() ) {
 			propTypeTitles.put(Character.toString(e.getKey()), e.toString());
 		}
@@ -382,7 +387,7 @@ public class ModbusWritePropertyConfig {
 		// drop-down menu for function
 		BasicMultiValueSettingSpecifier functionSpec = new BasicMultiValueSettingSpecifier(
 				prefix + "functionCode", defaults.getFunctionCode());
-		Map<String, String> functionTitles = new LinkedHashMap<String, String>(4);
+		Map<String, String> functionTitles = new LinkedHashMap<>(4);
 		for ( ModbusWriteFunction e : ModbusWriteFunction.values() ) {
 			functionTitles.put(String.valueOf(e.getCode()), e.toDisplayString());
 		}
@@ -392,7 +397,7 @@ public class ModbusWritePropertyConfig {
 		// drop-down menu for dataType
 		BasicMultiValueSettingSpecifier dataTypeSpec = new BasicMultiValueSettingSpecifier(
 				prefix + "dataTypeKey", defaults.getDataTypeKey());
-		Map<String, String> dataTypeTitles = new LinkedHashMap<String, String>(3);
+		Map<String, String> dataTypeTitles = new LinkedHashMap<>(3);
 		for ( ModbusDataType e : ModbusDataType.values() ) {
 			dataTypeTitles.put(e.getKey(), e.toDisplayString());
 		}
@@ -422,6 +427,27 @@ public class ModbusWritePropertyConfig {
 	 */
 	public void setControlId(@Nullable String controlId) {
 		this.controlId = controlId;
+	}
+
+	/**
+	 * Get the control property name.
+	 *
+	 * @return the name
+	 * @since 2.3
+	 */
+	public final @Nullable String getControlPropertyName() {
+		return controlPropertyName;
+	}
+
+	/**
+	 * Set the control property name.
+	 *
+	 * @param controlPropertyName
+	 *        the name to set
+	 * @since 2.3
+	 */
+	public final void setControlPropertyName(@Nullable String controlPropertyName) {
+		this.controlPropertyName = controlPropertyName;
 	}
 
 	/**

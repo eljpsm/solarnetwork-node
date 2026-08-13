@@ -527,6 +527,7 @@ public class ModbusControl extends ModbusDeviceSupport
 		// @formatter:off
 		NodeControlInfo info = BasicNodeControlInfo.builder()
 				.withControlId(resolvePlaceholders(config.getControlId()))
+				.withPropertyName(config.getControlPropertyName())
 				.withType(config.getControlPropertyType())
 				.withReadonly(false)
 				.withValue(value != null ? value.toString() : null)

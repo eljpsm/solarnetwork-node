@@ -12,6 +12,7 @@ net.solarnetwork.node.control.modbus.P1,propConfigs[1].controlPropertyTypeKey,f,
 net.solarnetwork.node.control.modbus.P1,propConfigs[1].decimalScale,-1,0,2022-03-09 18:30:01
 net.solarnetwork.node.control.modbus.P1,propConfigs[1].functionCode,6,0,2022-03-09 18:30:01
 net.solarnetwork.node.control.modbus.P1,propConfigs[1].controlId,control/1,0,2022-03-09 18:30:01
+net.solarnetwork.node.control.modbus.P1,propConfigs[1].controlPropertyName,error,0,2022-03-09 18:30:01
 net.solarnetwork.node.control.modbus.P1,propConfigs[2].address,2,0,2022-03-09 18:30:01
 net.solarnetwork.node.control.modbus.P1,propConfigs[2].dataTypeKey,f32,0,2022-03-09 18:30:01
 net.solarnetwork.node.control.modbus.P1,propConfigs[2].controlPropertyTypeKey,f,0,2022-03-09 18:30:01

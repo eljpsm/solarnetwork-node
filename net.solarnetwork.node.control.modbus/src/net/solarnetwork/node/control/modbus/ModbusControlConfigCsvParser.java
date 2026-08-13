@@ -28,6 +28,7 @@ import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.DATA_T
 import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.DECIMAL_SCALE;
 import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.MULTIPLIER;
 import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.NETWORK_NAME;
+import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.PROP_NAME;
 import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.PROP_TYPE;
 import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.REG_ADDR;
 import static net.solarnetwork.node.control.modbus.ModbusControlCsvColumn.REG_TYPE;
@@ -128,6 +129,8 @@ public class ModbusControlConfigCsvParser {
 			propConfig
 					.setUnitMultiplier(parseBigDecimalValue(row, rowLen, rowNum, MULTIPLIER.getCode()));
 			propConfig.setDecimalScale(parseIntegerValue(row, rowLen, rowNum, DECIMAL_SCALE.getCode()));
+			propConfig
+					.setControlPropertyName(parseStringValue(row, rowLen, rowNum, PROP_NAME.getCode()));
 			if ( propConfig.isEmpty() ) {
 				continue;
 			}

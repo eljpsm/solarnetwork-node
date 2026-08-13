@@ -39,7 +39,7 @@ import net.solarnetwork.util.ObjectUtils;
  * Generate Modbus Control configuration CSV from settings.
  *
  * @author matt
- * @version 2.0
+ * @version 2.1
  */
 public class ModbusControlConfigCsvWriter {
 
@@ -117,6 +117,7 @@ public class ModbusControlConfigCsvWriter {
 			row[ModbusControlCsvColumn.DECIMAL_SCALE.getCode()] = (propConfig.getDecimalScale() != null
 					? propConfig.getDecimalScale().toString()
 					: null);
+			row[ModbusControlCsvColumn.PROP_NAME.getCode()] = propConfig.getControlPropertyName();
 			writer.writeRecord(row);
 			fill(row, null);
 		}
