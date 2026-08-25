@@ -23,6 +23,9 @@
 package net.solarnetwork.node.control.modbus.test;
 
 import static java.lang.String.format;
+import static org.assertj.core.api.BDDAssertions.from;
+import static org.assertj.core.api.BDDAssertions.then;
+import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -112,6 +115,55 @@ public class ModbusControlConfigCsvParserTests {
 		assertThat("Sample cache ms parsed", config.getSampleCacheMs(), is(5000L));
 		assertThat("Word order parsed", config.getWordOrder(),
 				is(ModbusWordOrder.LeastToMostSignificant));
+	}
+
+	@Test
+	public void parse_deviceDetails_propNames() throws IOException {
+		// GIVEN
+
+		// WHEN
+		try (Reader in = new InputStreamReader(getClass().getResourceAsStream("test-config-04.csv"),
+				StandardCharsets.UTF_8);
+				CsvReader<CsvRecord> csv = CsvReader.builder().allowMissingFields(true)
+						.allowExtraFields(true).commentStrategy(CommentStrategy.NONE)
+						.build(CsvRecordHandler.builder().fieldModifier(FieldModifiers.TRIM).build(),
+								in)) {
+			parser.parse(csv);
+		}
+
+		// THEN
+		// @formatter:off
+		then(results)
+			.as("Read device infos")
+			.hasSize(1)
+			.element(0)
+			.as("Key parsed")
+			.returns("P1", from(ModbusControlConfig::getKey))
+			.as("Network name parsed")
+			.returns("Modbus Port", from(ModbusControlConfig::getModbusNetworkName))
+			.as("Unit iD parsed")
+			.returns(1, from(ModbusControlConfig::getUnitId))
+			.as("Sample cache ms parsed")
+			.returns(5000L, from(ModbusControlConfig::getSampleCacheMs))
+			.as("Word order parsed")
+			.returns(ModbusWordOrder.MostToLeastSignificant, from(ModbusControlConfig::getWordOrder))
+			.as("Property name parsed")
+			.extracting(ModbusControlConfig::getPropertyConfigs, list(ModbusWritePropertyConfig.class))
+			.as("Modbus property config parsed")
+			.hasSize(1)
+			.element(0)
+			.as("Control ID parsed")
+			.returns("control/1", from(ModbusWritePropertyConfig::getControlId))
+			.as("Control type parsed")
+			.returns(NodeControlPropertyType.Boolean, from(ModbusWritePropertyConfig::getControlPropertyType))
+			.as("Register address parsed")
+			.returns(100, from(ModbusWritePropertyConfig::getAddress))
+			.as("Data type parsed")
+			.returns(ModbusDataType.Boolean, from(ModbusWritePropertyConfig::getDataType))
+			.as("Data type parsed")
+			.returns("v1", from(ModbusWritePropertyConfig::getControlPropertyName))
+			;
+		// @formatter:on
 	}
 
 	@Test
