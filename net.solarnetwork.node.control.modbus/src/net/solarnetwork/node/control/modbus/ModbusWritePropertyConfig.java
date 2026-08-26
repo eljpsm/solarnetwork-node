@@ -284,6 +284,7 @@ public class ModbusWritePropertyConfig {
 		addSetting(settings, providerId, instanceId, i, "wordLength", getWordLength());
 		addSetting(settings, providerId, instanceId, i, "unitMultiplier", getUnitMultiplier());
 		addSetting(settings, providerId, instanceId, i, "decimalScale", getDecimalScale());
+		addSetting(settings, providerId, instanceId, i, "controlPropertyName", getControlPropertyName());
 		return settings;
 	}
 
