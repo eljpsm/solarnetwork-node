@@ -111,6 +111,10 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 	 */
 	public static final TranspositionModel DEFAULT_TRANSPOSITION_MODEL = TranspositionModel.HayDavies;
 
+	private static final BigDecimal DEGREES_90 = new BigDecimal(90);
+	private static final BigDecimal DEGREES_180 = new BigDecimal(180);
+	private static final BigDecimal DEGREES_360 = new BigDecimal(360);
+
 	private final OptionalService<DatumMetadataService> datumMetadataService;
 	private final OptionalFilterableService<MetadataService> characteristicsMetadataService;
 	private final ObjectMapper objectMapper;
@@ -210,18 +214,10 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 		if ( backtrack ) {
 			cmdArguments.put(CommandOptions.Backtrack.getOption(), Boolean.TRUE.toString());
 		}
-		if ( axisTilt != null ) {
-			cmdArguments.put(CommandOptions.AxisTilt.getOption(), axisTilt.toPlainString());
-		}
-		if ( axisAzimuth != null ) {
-			cmdArguments.put(CommandOptions.AxisAzimuth.getOption(), axisAzimuth.toPlainString());
-		}
-		if ( maxAngle != null ) {
-			cmdArguments.put(CommandOptions.MaxAngle.getOption(), maxAngle.toPlainString());
-		}
-		if ( gcr != null ) {
-			cmdArguments.put(CommandOptions.Gcr.getOption(), gcr.toPlainString());
-		}
+		putCommandArgument(cmdArguments, CommandOptions.AxisTilt, axisTilt);
+		putCommandArgument(cmdArguments, CommandOptions.AxisAzimuth, axisAzimuth);
+		putCommandArgument(cmdArguments, CommandOptions.MaxAngle, maxAngle);
+		putCommandArgument(cmdArguments, CommandOptions.Gcr, gcr);
 
 		final String metaPath = nonEmptyString(metadataPath);
 		final String altMetaPath = nonEmptyString(alternateMetadataPath);
@@ -332,13 +328,99 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 			if ( metaKey == null ) {
 				continue;
 			}
-			Object metaVal = params.get(metaKey);
-			if ( metaVal != null ) {
-				cmdArguments.put(opt.getOption(),
-						metaVal instanceof BigDecimal ? ((BigDecimal) metaVal).toPlainString()
-								: metaVal.toString());
-			}
+			putCommandArgument(cmdArguments, opt, params.get(metaKey));
 		}
+	}
+
+	/**
+	 * Add a command argument value, if the value is valid.
+	 *
+	 * <p>
+	 * An invalid value is not added, preserving any previously resolved value
+	 * for the same option, and a warning is logged.
+	 * </p>
+	 *
+	 * @param cmdArguments
+	 *        the arguments to add the value to
+	 * @param opt
+	 *        the command option
+	 * @param val
+	 *        the proposed option value; {@literal null} is ignored
+	 */
+	private void putCommandArgument(Map<String, String> cmdArguments, CommandOptions opt, Object val) {
+		if ( val == null ) {
+			return;
+		}
+		String argVal = commandArgumentValue(opt, val);
+		if ( argVal != null ) {
+			cmdArguments.put(opt.getOption(), argVal);
+		} else {
+			log.warn("Ignoring invalid GHI -> POA irradiance command option [{}] value [{}]",
+					opt.getOption(), val);
+		}
+	}
+
+	/**
+	 * Validate and normalize a command option value.
+	 *
+	 * <p>
+	 * Tracker options are validated against the value ranges supported by
+	 * pvlib {@code tracking.singleaxis()}; other options are normalized
+	 * without validation.
+	 * </p>
+	 *
+	 * @param opt
+	 *        the command option
+	 * @param val
+	 *        the proposed option value
+	 * @return the normalized argument value, or {@literal null} if the value
+	 *         is not valid for the given option
+	 */
+	private static String commandArgumentValue(CommandOptions opt, Object val) {
+		switch (opt) {
+			case Tracking:
+			case Backtrack: {
+				if ( val instanceof Boolean ) {
+					return val.toString();
+				}
+				String s = val.toString().trim();
+				return ("true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s)
+						? s.toLowerCase(Locale.ROOT)
+						: null);
+			}
+
+			case AxisTilt:
+				return rangedDecimalArgumentValue(val, BigDecimal.ZERO, false, DEGREES_90);
+
+			case AxisAzimuth:
+				return rangedDecimalArgumentValue(val, BigDecimal.ZERO, false, DEGREES_360);
+
+			case MaxAngle:
+				return rangedDecimalArgumentValue(val, BigDecimal.ZERO, true, DEGREES_180);
+
+			case Gcr:
+				return rangedDecimalArgumentValue(val, BigDecimal.ZERO, true, BigDecimal.ONE);
+
+			default:
+				return (val instanceof BigDecimal ? ((BigDecimal) val).toPlainString()
+						: val.toString());
+		}
+	}
+
+	private static String rangedDecimalArgumentValue(Object val, BigDecimal min, boolean minExclusive,
+			BigDecimal max) {
+		BigDecimal n;
+		try {
+			n = (val instanceof BigDecimal ? (BigDecimal) val
+					: new BigDecimal(val.toString().trim()));
+		} catch ( NumberFormatException e ) {
+			return null;
+		}
+		final int minCompare = n.compareTo(min);
+		if ( (minExclusive ? minCompare <= 0 : minCompare < 0) || n.compareTo(max) > 0 ) {
+			return null;
+		}
+		return n.toPlainString();
 	}
 
 	private Map<String, ?> executeCommand(final Map<String, String> args) {

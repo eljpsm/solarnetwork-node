@@ -1,5 +1,6 @@
 import getopt
 import json
+import math
 import pandas as pd
 import sys
 import warnings
@@ -17,10 +18,12 @@ def usage():
     print("""Usage:
 
 -a --altitude        elevation above sea level, in meters
--A --max-angle       optional maximum tracker rotation angle from horizontal, in degrees (default 90)
+-A --max-angle       optional maximum tracker rotation angle from horizontal, in degrees,
+                     0 exclusive to 180 (default 90)
 -b --backtrack       optional 'true'/'false' to enable tracker backtracking (default false)
 -d --date            date, like YYYY-MM-DDTHH:mm:ss
--g --gcr             optional ground coverage ratio, used for backtracking (default 0.2857)
+-g --gcr             optional ground coverage ratio, used for backtracking,
+                     0 exclusive to 1 (default 0.2857)
 -i --irradiance      GHI irradiance, in W/m^2
 -k --tracking        'true'/'false' to enable single-axis tracker mode; when true
                      --array-tilt and --array-azimuth are ignored
@@ -31,13 +34,32 @@ def usage():
 -t --array-tilt      solar array tilt angle from horizontal, in degrees
 -T --transpose       the transposition model to use, e.g. 'haydavies', 'perez-driesse'
 -u --array-azimuth   solar array angle clockwise from north
--x --axis-tilt       tracker axis tilt angle from horizontal, in degrees (default 0)
--X --axis-azimuth    tracker axis angle clockwise from north, in degrees (default 0)
+-x --axis-tilt       tracker axis tilt angle from horizontal, in degrees, 0 to 90 (default 0)
+-X --axis-azimuth    tracker axis angle clockwise from north, in degrees, 0 to 360 (default 0)
 -z --zone            time zone, like Pacific/Auckland
 """)
 
-def parse_bool(s: str) -> bool:
-    return s.strip().lower() in ('true', '1', 'yes', 'y')
+def invalid_value(message: str):
+    print(message, file=sys.stderr)
+    sys.exit(2)
+
+def parse_bool(opt: str, s: str) -> bool:
+    v = s.strip().lower()
+    if v in ('true', '1', 'yes', 'y'):
+        return True
+    if v in ('false', '0', 'no', 'n'):
+        return False
+    invalid_value("%s: invalid boolean value '%s'" % (opt, s))
+
+def parse_ranged_float(opt: str, s: str, lo: float, hi: float, lo_exclusive=False) -> float:
+    try:
+        v = float(s)
+    except ValueError:
+        v = math.nan
+    if not math.isfinite(v) or v > hi or (v <= lo if lo_exclusive else v < lo):
+        invalid_value("%s: value '%s' not a number between %s%s and %s"
+                      % (opt, s, lo, ' (exclusive)' if lo_exclusive else '', hi))
+    return v
 
 def ghi_get_irradiance(location: Location,
                        array_tilt: float,
@@ -169,17 +191,17 @@ for opt, arg in opts:
     if opt in ('-a', '--altitude'): # m
         alt = float(arg)
     elif opt in ('-A', '--max-angle'): # angle in degrees
-        max_angle = float(arg)
+        max_angle = parse_ranged_float(opt, arg, 0, 180, lo_exclusive=True)
     elif opt in ('-b', '--backtrack'):
-        backtrack = parse_bool(arg)
+        backtrack = parse_bool(opt, arg)
     elif opt in ('-d', '--date'):
         date = arg
     elif opt in ('-g', '--gcr'):
-        gcr = float(arg)
+        gcr = parse_ranged_float(opt, arg, 0, 1, lo_exclusive=True)
     elif opt in ('-i', '--irradiance'): # W/m2
         ghi = float(arg)
     elif opt in ('-k', '--tracking'):
-        tracking = parse_bool(arg)
+        tracking = parse_bool(opt, arg)
     elif opt in ('-l', '--latitude'):
         lat = float(arg)
     elif opt in ('-L', '--longitude'):
@@ -195,9 +217,9 @@ for opt, arg in opts:
     elif opt in ('-u', '--array-azimuth'): # angle in degrees
         array_azimuth = float(arg)
     elif opt in ('-x', '--axis-tilt'): # angle in degrees
-        axis_tilt = float(arg)
+        axis_tilt = parse_ranged_float(opt, arg, 0, 90)
     elif opt in ('-X', '--axis-azimuth'): # angle in degrees
-        axis_azimuth = float(arg)
+        axis_azimuth = parse_ranged_float(opt, arg, 0, 360)
     elif opt in ('-z', '--zone'):
         zone = arg
 

@@ -102,23 +102,23 @@ metadata, in the following order, with **later sources overriding** earlier sour
 
 The supported metadata parameters are:
 
-| Metadata Key         | Description                                                                                                              |
-| :------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-| `lat`                | Decimal latitude of the PV system                                                                                        |
-| `lon`                | Decimal longitude of the PV system                                                                                       |
-| `alt`                | Altitude of the PV system, in meters above sea level                                                                     |
-| `zone`               | Time zone identifier of the PV system, for example `Pacific/Auckland`                                                    |
-| `pvArrayTilt`        | PV array tilt angle value, in degrees from horizontal                                                                    |
-| `pvArrayAzimuth`     | PV array angle value, in degrees clockwise from north                                                                    |
-| `minCosZenith`       | Minimum value of `cos(zenith)` to allow when calculating global clearness index                                          |
-| `maxZenith`          | Maximum zenith value to allow in DNI calculation                                                                         |
-| `transpositionModel` | The transposition model name to use, one of `haydavies` or `perez-driesse`; defaults to `haydavies`                      |
-| `tracking`           | `true` to model a single-axis tracker, in which case `pvArrayTilt` and `pvArrayAzimuth` are ignored; defaults to `false` |
-| `pvAxisTilt`         | Tracker axis tilt angle value, in degrees from horizontal; defaults to `0`                                               |
-| `pvAxisAzimuth`      | Tracker axis angle value, in degrees clockwise from north; defaults to `0`                                               |
-| `maxAngle`           | Maximum tracker rotation angle value, in degrees from horizontal; defaults to `90`                                       |
-| `backtrack`          | `true` to apply backtracking to avoid row-to-row shading, using `gcr`; defaults to `false`                               |
-| `gcr`                | Ground coverage ratio (PV row width to row spacing), used for backtracking; defaults to `0.2857`                         |
+| Metadata Key         | Description                                                                                                                  |
+| :------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| `lat`                | Decimal latitude of the PV system                                                                                            |
+| `lon`                | Decimal longitude of the PV system                                                                                           |
+| `alt`                | Altitude of the PV system, in meters above sea level                                                                         |
+| `zone`               | Time zone identifier of the PV system, for example `Pacific/Auckland`                                                        |
+| `pvArrayTilt`        | PV array tilt angle value, in degrees from horizontal                                                                        |
+| `pvArrayAzimuth`     | PV array angle value, in degrees clockwise from north                                                                        |
+| `minCosZenith`       | Minimum value of `cos(zenith)` to allow when calculating global clearness index                                              |
+| `maxZenith`          | Maximum zenith value to allow in DNI calculation                                                                             |
+| `transpositionModel` | The transposition model name to use, one of `haydavies` or `perez-driesse`; defaults to `haydavies`                          |
+| `tracking`           | `true` to model a single-axis tracker, in which case `pvArrayTilt` and `pvArrayAzimuth` are ignored; defaults to `false`     |
+| `pvAxisTilt`         | Tracker axis tilt angle value, in degrees from horizontal, between `0` and `90`; defaults to `0`                             |
+| `pvAxisAzimuth`      | Tracker axis angle value, in degrees clockwise from north, between `0` and `360`; defaults to `0`                            |
+| `maxAngle`           | Maximum tracker rotation angle value, in degrees from horizontal, greater than `0` up to `180`; defaults to `90`             |
+| `backtrack`          | `true` to apply backtracking to avoid row-to-row shading, using `gcr`; defaults to `false`                                   |
+| `gcr`                | Ground coverage ratio (PV row width to row spacing), used for backtracking, greater than `0` up to `1`; defaults to `0.2857` |
 
 # Expressions
 
@@ -162,25 +162,25 @@ The **Command** setting is the system-specific path to the command to run, where
 command must accept the options shown below, and is expected to output a JSON object. The
 [def/ghi-to-poa.py](./def/ghi-to-poa.py) script is an example of such a command.
 
-| Command Option     | Description                                                                                                                |
-| :----------------- | :------------------------------------------------------------------------------------------------------------------------- |
-| `--latitude`       | The decimal latitude                                                                                                       |
-| `--longitude`      | The decimal longitude                                                                                                      |
-| `--altitude`       | The altitude in meters above sea level                                                                                     |
-| `--zone`           | Time zone identifier, for example `Pacific/Auckland`                                                                       |
-| `--array-tilt`     | PV tilt angle value, in degrees from horizontal                                                                            |
-| `--array-azimuth`  | PV array angle value, in degrees clockwise from north                                                                      |
-| `--min-cos-zenith` | Minimum value of `cos(zenith)` to allow when calculating global clearness index                                            |
-| `--max-zenith`     | Maximum zenith value to allow in DNI calculation                                                                           |
-| `--date`           | Local timestamp, in `YYYY-MM-DDTHH:mm:ss` format                                                                           |
-| `--irradiance`     | The GHI irradiance to calculate the POA irradiance value for                                                               |
-| `--transpose`      | The optional transposition model name to use, for example `haydavies`                                                      |
-| `--tracking`       | `true` to model a single-axis tracker, in which case `--array-tilt` and `--array-azimuth` are ignored; defaults to `false` |
-| `--axis-tilt`      | Tracker axis tilt angle value, in degrees from horizontal; defaults to `0`                                                 |
-| `--axis-azimuth`   | Tracker axis angle value, in degrees clockwise from north; defaults to `0`                                                 |
-| `--max-angle`      | Maximum tracker rotation angle value, in degrees from horizontal; defaults to `90`                                         |
-| `--backtrack`      | `true` to apply backtracking to avoid row-to-row shading, using `--gcr`; defaults to `false`                               |
-| `--gcr`            | Ground coverage ratio (PV row width to row spacing), used for backtracking; defaults to `0.2857`                           |
+| Command Option     | Description                                                                                                                  |
+| :----------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| `--latitude`       | The decimal latitude                                                                                                         |
+| `--longitude`      | The decimal longitude                                                                                                        |
+| `--altitude`       | The altitude in meters above sea level                                                                                       |
+| `--zone`           | Time zone identifier, for example `Pacific/Auckland`                                                                         |
+| `--array-tilt`     | PV tilt angle value, in degrees from horizontal                                                                              |
+| `--array-azimuth`  | PV array angle value, in degrees clockwise from north                                                                        |
+| `--min-cos-zenith` | Minimum value of `cos(zenith)` to allow when calculating global clearness index                                              |
+| `--max-zenith`     | Maximum zenith value to allow in DNI calculation                                                                             |
+| `--date`           | Local timestamp, in `YYYY-MM-DDTHH:mm:ss` format                                                                             |
+| `--irradiance`     | The GHI irradiance to calculate the POA irradiance value for                                                                 |
+| `--transpose`      | The optional transposition model name to use, for example `haydavies`                                                        |
+| `--tracking`       | `true` to model a single-axis tracker, in which case `--array-tilt` and `--array-azimuth` are ignored; defaults to `false`   |
+| `--axis-tilt`      | Tracker axis tilt angle value, in degrees from horizontal, between `0` and `90`; defaults to `0`                             |
+| `--axis-azimuth`   | Tracker axis angle value, in degrees clockwise from north, between `0` and `360`; defaults to `0`                            |
+| `--max-angle`      | Maximum tracker rotation angle value, in degrees from horizontal, greater than `0` up to `180`; defaults to `90`             |
+| `--backtrack`      | `true` to apply backtracking to avoid row-to-row shading, using `--gcr`; defaults to `false`                                 |
+| `--gcr`            | Ground coverage ratio (PV row width to row spacing), used for backtracking, greater than `0` up to `1`; defaults to `0.2857` |
 
 # Developer Setup
 
