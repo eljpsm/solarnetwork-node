@@ -402,8 +402,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 				return rangedDecimalArgumentValue(val, BigDecimal.ZERO, true, BigDecimal.ONE);
 
 			default:
-				return (val instanceof BigDecimal ? ((BigDecimal) val).toPlainString()
-						: val.toString());
+				return (val instanceof BigDecimal ? ((BigDecimal) val).toPlainString() : val.toString());
 		}
 	}
 
@@ -411,8 +410,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 			BigDecimal max) {
 		BigDecimal n;
 		try {
-			n = (val instanceof BigDecimal ? (BigDecimal) val
-					: new BigDecimal(val.toString().trim()));
+			n = (val instanceof BigDecimal ? (BigDecimal) val : new BigDecimal(val.toString().trim()));
 		} catch ( NumberFormatException e ) {
 			return null;
 		}
