@@ -87,7 +87,7 @@ import net.solarnetwork.util.CollectionUtils;
  * </p>
  *
  * @author matt
- * @version 1.2
+ * @version 1.3
  */
 public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 		implements DatumFilterService, SettingSpecifierProvider {
@@ -130,6 +130,12 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 	private BigDecimal minCosZenith;
 	private BigDecimal maxZenith;
 	private TranspositionModel transpositionModel = DEFAULT_TRANSPOSITION_MODEL;
+	private boolean tracking;
+	private BigDecimal axisTilt;
+	private BigDecimal axisAzimuth;
+	private BigDecimal maxAngle;
+	private boolean backtrack;
+	private BigDecimal gcr;
 
 	private String command = DEFAULT_COMMAND;
 	private String poaResultKey = DEFAULT_POA_RESULT_KEY;
@@ -170,7 +176,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 
 		final String sourceId = datum.getSourceId();
 
-		final Map<String, String> cmdArguments = new HashMap<>(10);
+		final Map<String, String> cmdArguments = new HashMap<>(16);
 		if ( lat != null ) {
 			cmdArguments.put(CommandOptions.Latitude.getOption(), lat.toPlainString());
 		}
@@ -197,6 +203,22 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 		}
 		if ( transpositionModel != null ) {
 			cmdArguments.put(CommandOptions.TranspositionModel.getOption(), transpositionModel.getKey());
+		}
+		if ( tracking ) {
+			cmdArguments.put(CommandOptions.Tracking.getOption(), Boolean.TRUE.toString());
+			cmdArguments.put(CommandOptions.Backtrack.getOption(), String.valueOf(backtrack));
+			if ( axisTilt != null ) {
+				cmdArguments.put(CommandOptions.AxisTilt.getOption(), axisTilt.toPlainString());
+			}
+			if ( axisAzimuth != null ) {
+				cmdArguments.put(CommandOptions.AxisAzimuth.getOption(), axisAzimuth.toPlainString());
+			}
+			if ( maxAngle != null ) {
+				cmdArguments.put(CommandOptions.MaxAngle.getOption(), maxAngle.toPlainString());
+			}
+			if ( gcr != null ) {
+				cmdArguments.put(CommandOptions.Gcr.getOption(), gcr.toPlainString());
+			}
 		}
 
 		final String metaPath = nonEmptyString(metadataPath);
@@ -396,6 +418,13 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 		results.add(new BasicTextFieldSettingSpecifier("tilt", null));
 		results.add(new BasicTextFieldSettingSpecifier("minCosZenith", null));
 		results.add(new BasicTextFieldSettingSpecifier("maxZenith", null));
+
+		results.add(new BasicToggleSettingSpecifier("tracking", Boolean.FALSE));
+		results.add(new BasicTextFieldSettingSpecifier("axisTilt", null));
+		results.add(new BasicTextFieldSettingSpecifier("axisAzimuth", null));
+		results.add(new BasicTextFieldSettingSpecifier("maxAngle", null));
+		results.add(new BasicToggleSettingSpecifier("backtrack", Boolean.FALSE));
+		results.add(new BasicTextFieldSettingSpecifier("gcr", null));
 
 		final MessageSource messageSource = getMessageSource();
 
@@ -873,6 +902,144 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 			// ignore, use default
 		}
 		setTranspositionModel(model);
+	}
+
+	/**
+	 * Get the single-axis tracker mode.
+	 *
+	 * @return {@literal true} to model a single-axis tracker, in which case
+	 *         the array tilt and azimuth are ignored
+	 * @since 1.3
+	 */
+	public final boolean isTracking() {
+		return tracking;
+	}
+
+	/**
+	 * Set the single-axis tracker mode.
+	 *
+	 * @param tracking
+	 *        {@literal true} to model a single-axis tracker, in which case the
+	 *        array tilt and azimuth are ignored
+	 * @since 1.3
+	 */
+	public final void setTracking(boolean tracking) {
+		this.tracking = tracking;
+	}
+
+	/**
+	 * Get the tracker axis tilt.
+	 *
+	 * @return the tilt of the tracker axis in degrees from horizontal, or
+	 *         {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final BigDecimal getAxisTilt() {
+		return axisTilt;
+	}
+
+	/**
+	 * Set the tracker axis tilt.
+	 *
+	 * @param axisTilt
+	 *        the tilt of the tracker axis in degrees from horizontal to set,
+	 *        or {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final void setAxisTilt(BigDecimal axisTilt) {
+		this.axisTilt = axisTilt;
+	}
+
+	/**
+	 * Get the tracker axis azimuth.
+	 *
+	 * @return the angle of the tracker axis in degrees clockwise from north,
+	 *         or {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final BigDecimal getAxisAzimuth() {
+		return axisAzimuth;
+	}
+
+	/**
+	 * Set the tracker axis azimuth.
+	 *
+	 * @param axisAzimuth
+	 *        the angle of the tracker axis in degrees clockwise from north to
+	 *        set, or {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final void setAxisAzimuth(BigDecimal axisAzimuth) {
+		this.axisAzimuth = axisAzimuth;
+	}
+
+	/**
+	 * Get the maximum tracker rotation angle.
+	 *
+	 * @return the maximum rotation angle in degrees from horizontal, or
+	 *         {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final BigDecimal getMaxAngle() {
+		return maxAngle;
+	}
+
+	/**
+	 * Set the maximum tracker rotation angle.
+	 *
+	 * @param maxAngle
+	 *        the maximum rotation angle in degrees from horizontal to set, or
+	 *        {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final void setMaxAngle(BigDecimal maxAngle) {
+		this.maxAngle = maxAngle;
+	}
+
+	/**
+	 * Get the tracker backtracking mode.
+	 *
+	 * @return {@literal true} to apply backtracking to avoid row-to-row
+	 *         shading, using the ground coverage ratio
+	 * @since 1.3
+	 */
+	public final boolean isBacktrack() {
+		return backtrack;
+	}
+
+	/**
+	 * Set the tracker backtracking mode.
+	 *
+	 * @param backtrack
+	 *        {@literal true} to apply backtracking to avoid row-to-row
+	 *        shading, using the ground coverage ratio
+	 * @since 1.3
+	 */
+	public final void setBacktrack(boolean backtrack) {
+		this.backtrack = backtrack;
+	}
+
+	/**
+	 * Get the ground coverage ratio.
+	 *
+	 * @return the ratio of PV row width to row spacing, used for backtracking,
+	 *         or {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final BigDecimal getGcr() {
+		return gcr;
+	}
+
+	/**
+	 * Set the ground coverage ratio.
+	 *
+	 * @param gcr
+	 *        the ratio of PV row width to row spacing, used for backtracking,
+	 *        to set, or {@literal null} for the command default
+	 * @since 1.3
+	 */
+	public final void setGcr(BigDecimal gcr) {
+		this.gcr = gcr;
 	}
 
 }
