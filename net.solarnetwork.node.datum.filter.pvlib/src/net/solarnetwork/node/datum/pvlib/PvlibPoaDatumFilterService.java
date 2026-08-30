@@ -346,6 +346,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 	 *        the command option
 	 * @param val
 	 *        the proposed option value; {@literal null} is ignored
+	 * @since 1.3
 	 */
 	private void putCommandArgument(Map<String, String> cmdArguments, CommandOptions opt, Object val) {
 		if ( val == null ) {
@@ -375,6 +376,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 	 *        the proposed option value
 	 * @return the normalized argument value, or {@literal null} if the value
 	 *         is not valid for the given option
+	 * @since 1.3
 	 */
 	private static String commandArgumentValue(CommandOptions opt, Object val) {
 		switch (opt) {
@@ -402,7 +404,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 				return rangedDecimalArgumentValue(val, BigDecimal.ZERO, true, BigDecimal.ONE);
 
 			default:
-				return (val instanceof BigDecimal ? ((BigDecimal) val).toPlainString() : val.toString());
+				return (val instanceof BigDecimal n ? n.toPlainString() : val.toString());
 		}
 	}
 
@@ -410,7 +412,7 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 			BigDecimal max) {
 		BigDecimal n;
 		try {
-			n = (val instanceof BigDecimal ? (BigDecimal) val : new BigDecimal(val.toString().trim()));
+			n = (val instanceof BigDecimal d ? d : new BigDecimal(val.toString().trim()));
 		} catch ( NumberFormatException e ) {
 			return null;
 		}

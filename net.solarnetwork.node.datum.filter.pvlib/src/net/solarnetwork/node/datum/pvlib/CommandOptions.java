@@ -76,23 +76,39 @@ public enum CommandOptions {
 	 */
 	Tracking("--tracking", "tracking"),
 
-	/** A tracker axis tilt angle value, in degrees from horizontal. */
+	/**
+	 * A tracker axis tilt angle value, in degrees from horizontal.
+	 *
+	 * @since 1.2
+	 */
 	AxisTilt("--axis-tilt", "pvAxisTilt"),
 
-	/** A tracker axis angle value, in degrees clockwise from north. */
+	/**
+	 * A tracker axis angle value, in degrees clockwise from north.
+	 *
+	 * @since 1.2
+	 */
 	AxisAzimuth("--axis-azimuth", "pvAxisAzimuth"),
 
 	/**
 	 * A maximum tracker rotation angle value, in degrees from horizontal.
+	 *
+	 * @since 1.2
 	 */
 	MaxAngle("--max-angle", "maxAngle"),
 
 	/**
 	 * A tracker backtracking flag, as {@literal true} or {@literal false}.
+	 *
+	 * @since 1.2
 	 */
 	Backtrack("--backtrack", "backtrack"),
 
-	/** A ground coverage ratio value, used for backtracking. */
+	/**
+	 * A ground coverage ratio value, used for backtracking.
+	 *
+	 * @since 1.2
+	 */
 	Gcr("--gcr", "gcr"),
 
 	;
