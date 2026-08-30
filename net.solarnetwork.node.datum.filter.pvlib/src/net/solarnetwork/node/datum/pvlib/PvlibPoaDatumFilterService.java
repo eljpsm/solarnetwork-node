@@ -206,19 +206,21 @@ public class PvlibPoaDatumFilterService extends BaseDatumFilterSupport
 		}
 		if ( tracking ) {
 			cmdArguments.put(CommandOptions.Tracking.getOption(), Boolean.TRUE.toString());
-			cmdArguments.put(CommandOptions.Backtrack.getOption(), String.valueOf(backtrack));
-			if ( axisTilt != null ) {
-				cmdArguments.put(CommandOptions.AxisTilt.getOption(), axisTilt.toPlainString());
-			}
-			if ( axisAzimuth != null ) {
-				cmdArguments.put(CommandOptions.AxisAzimuth.getOption(), axisAzimuth.toPlainString());
-			}
-			if ( maxAngle != null ) {
-				cmdArguments.put(CommandOptions.MaxAngle.getOption(), maxAngle.toPlainString());
-			}
-			if ( gcr != null ) {
-				cmdArguments.put(CommandOptions.Gcr.getOption(), gcr.toPlainString());
-			}
+		}
+		if ( backtrack ) {
+			cmdArguments.put(CommandOptions.Backtrack.getOption(), Boolean.TRUE.toString());
+		}
+		if ( axisTilt != null ) {
+			cmdArguments.put(CommandOptions.AxisTilt.getOption(), axisTilt.toPlainString());
+		}
+		if ( axisAzimuth != null ) {
+			cmdArguments.put(CommandOptions.AxisAzimuth.getOption(), axisAzimuth.toPlainString());
+		}
+		if ( maxAngle != null ) {
+			cmdArguments.put(CommandOptions.MaxAngle.getOption(), maxAngle.toPlainString());
+		}
+		if ( gcr != null ) {
+			cmdArguments.put(CommandOptions.Gcr.getOption(), gcr.toPlainString());
 		}
 
 		final String metaPath = nonEmptyString(metadataPath);
