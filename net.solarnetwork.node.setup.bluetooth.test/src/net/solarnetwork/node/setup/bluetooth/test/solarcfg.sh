@@ -28,6 +28,19 @@ current_state () {
 }
 
 do_status () {
+	# "$0.hang": simulate a helper that never returns
+	if [ -e "$0.hang" ]; then
+		sleep 30
+	fi
+	# "$0.noisy": write more than a pipe buffer (64 KB) to STDERR before any
+	# STDOUT, which deadlocks a reader that drains STDOUT to EOF first
+	if [ -e "$0.noisy" ]; then
+		i=0
+		while [ $i -lt 4000 ]; do
+			echo "noise line $i: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 1>&2
+			i=$((i + 1))
+		done
+	fi
 	s="$(current_state)"
 	echo "active: $s"
 	echo "enabled: false"
@@ -46,10 +59,15 @@ do_disable () {
 	echo "Bluetooth setup radio disabled."
 }
 
+# mirrors `systemctl try-restart`: only a running peripheral is restarted
 do_restart () {
 	if [ -e "$0.fail" ]; then
 		echo "Simulated restart failure." 1>&2
 		exit 3
+	fi
+	if [ "$(current_state)" != "true" ]; then
+		echo "Bluetooth setup radio is not enabled; nothing to restart."
+		return 0
 	fi
 	echo true >"$STATE"
 	echo "Bluetooth setup radio restarted."

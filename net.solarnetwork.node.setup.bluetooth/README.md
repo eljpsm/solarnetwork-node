@@ -38,6 +38,7 @@ after an OS upgrade) is turned off.
 | Check Interval    | `60`                                                       | Seconds between SolarNetwork connectivity checks. `0` disables them.                                                                               |
 | Ping Test ID      | `net\.solarnetwork\.node\.upload\.mqtt\.MqttUploadService` | Regular expression matching the ID of the ping test that indicates SolarNetwork connectivity. If no test matches, the offline trigger never fires. |
 | Command           | `{sn.home}/bin/solarcfg`                                   | The `solarcfg` command to execute.                                                                                                                 |
+| Command Timeout   | `60`                                                       | Seconds to wait for the `solarcfg` command before giving up on it. A helper that exceeds this is killed and the radio state is left unchanged.     |
 
 The connectivity check uses the node's own system health ping tests, so by
 default it reflects whether the SolarIn/MQTT connection is established. Nodes
@@ -82,9 +83,9 @@ duration:600
 | `status`  |                      | Return the current status (the default when no action is given).                                                                                    |
 | `enable`  | `duration` (seconds) | Enable the operational mode for `duration` seconds (default _Default Duration_, capped at _Maximum Duration_). Calling it again extends the window. |
 | `disable` |                      | Disable the operational mode. The radio turns off unless the offline fallback or _Always On_ holds, which **drops the client's own connection**.    |
-| `restart` |                      | Restart the Bluetooth peripheral service.                                                                                                           |
+| `restart` |                      | Restart the Bluetooth peripheral service if it is running, then reconcile. It never turns a gated-off radio on.                                     |
 
-The `result` of `status`, `enable` and `disable` is a status object:
+The `result` of `status`, `enable`, `disable` and `restart` is a status object:
 
 ```json
 {
@@ -112,3 +113,6 @@ The same instruction can be queued from SolarNetwork as well, with
   _Always On_ setting instead.
 - This plugin requires `solarnode-bluetooth-setup` 4.0 or later, which provides
   the `solarcfg bluetooth` helper.
+- The helper runs as root via `sudo`. It reads the adapter name from
+  `/etc/solarnode/bluetooth-setup.env` as data and never sources that file,
+  because `/etc/solarnode` is writable by the SolarNode user.

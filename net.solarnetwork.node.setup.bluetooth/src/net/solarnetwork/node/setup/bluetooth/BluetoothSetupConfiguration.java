@@ -25,7 +25,9 @@ package net.solarnetwork.node.setup.bluetooth;
 import static net.solarnetwork.node.Constants.solarNodeHome;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.time.Clock;
 import java.time.Duration;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
@@ -94,7 +97,8 @@ import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
  * seconds (default {@link #getDefaultDurationSeconds()}, at most
  * {@link #getMaxDurationSeconds()})</li>
  * <li>{@code disable} - disable the operational mode</li>
- * <li>{@code restart} - restart the Bluetooth peripheral service</li>
+ * <li>{@code restart} - restart the Bluetooth peripheral service, if it is
+ * running; this never turns a gated-off radio on</li>
  * </ul>
  *
  * <p>
@@ -159,8 +163,11 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	/** The default value for the {@code maxDurationSeconds} property. */
 	public static final long DEFAULT_MAX_DURATION_SECONDS = 14400L;
 
-	/** The maximum time to wait for the helper command to complete. */
-	private static final long COMMAND_TIMEOUT_SECONDS = 60L;
+	/** The default value for the {@code commandTimeoutSeconds} property. */
+	public static final long DEFAULT_COMMAND_TIMEOUT_SECONDS = 60L;
+
+	/** The time to wait for the output reader threads after the process exits. */
+	private static final long READER_JOIN_MILLISECONDS = 5000L;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -171,6 +178,7 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	private Clock clock = Clock.systemUTC();
 
 	private String command = DEFAULT_COMMAND;
+	private long commandTimeoutSeconds = DEFAULT_COMMAND_TIMEOUT_SECONDS;
 	private String opMode = DEFAULT_OP_MODE;
 	private boolean alwaysOn = false;
 	private boolean offlineTriggerEnabled = true;
@@ -317,7 +325,11 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 					resultParams.put(PARAM_SERVICE_RESULT, currentStatus());
 					break;
 				case ACTION_RESTART:
-					resultParams.put(PARAM_SERVICE_RESULT, executeAction(ACTION_RESTART));
+					// the helper only restarts a running peripheral; reconcile afterwards
+					// so the radio always ends in its gated state
+					executeAction(ACTION_RESTART);
+					reconcile();
+					resultParams.put(PARAM_SERVICE_RESULT, currentStatus());
 					break;
 				default:
 					resultParams.put(PARAM_MESSAGE,
@@ -516,6 +528,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 				String.valueOf(DEFAULT_WATCHDOG_INTERVAL_SECONDS)));
 		result.add(new BasicTextFieldSettingSpecifier("pingTestIdRegex", DEFAULT_PING_TEST_ID_REGEX));
 		result.add(new BasicTextFieldSettingSpecifier("command", DEFAULT_COMMAND));
+		result.add(new BasicTextFieldSettingSpecifier("commandTimeoutSeconds",
+				String.valueOf(DEFAULT_COMMAND_TIMEOUT_SECONDS)));
 		return result;
 	}
 
@@ -738,46 +752,80 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 				cmd.add(arg);
 			}
 		}
-		List<String> result = new ArrayList<>(8);
+		final List<String> result = new ArrayList<>(8);
+		final StringBuilder errBuf = new StringBuilder();
 		ProcessBuilder pb = new ProcessBuilder(cmd);
+		// never let the helper wait on input (e.g. an unexpected sudo prompt)
+		pb.redirectInput(ProcessBuilder.Redirect.from(new File("/dev/null")));
+		Process pr = null;
 		try {
-			Process pr = pb.start();
-			BufferedReader in = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-			String line = null;
-			while ( (line = in.readLine()) != null ) {
-				result.add(line);
-			}
-
-			BufferedReader err = new BufferedReader(new InputStreamReader(pr.getErrorStream()));
-			StringBuilder buf = new StringBuilder();
-			line = null;
-			while ( (line = err.readLine()) != null ) {
-				if ( buf.length() > 0 ) {
-					buf.append('\n');
+			pr = pb.start();
+			// drain both streams concurrently so a hung or chatty helper can
+			// neither block this thread nor fill a pipe; the timeout below is
+			// measured from process start
+			Thread outReader = captureInputStream(pr.getInputStream(), result::add,
+					"BluetoothSetup-" + action + "-stdout");
+			Thread errReader = captureInputStream(pr.getErrorStream(), line -> {
+				if ( errBuf.length() > 0 ) {
+					errBuf.append('\n');
 				}
-				buf.append(line);
-			}
-
-			if ( !pr.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS) ) {
+				errBuf.append(line);
+			}, "BluetoothSetup-" + action + "-stderr");
+			if ( !pr.waitFor(commandTimeoutSeconds, TimeUnit.SECONDS) ) {
 				pr.destroyForcibly();
 				throw new RuntimeException("Bluetooth action " + action + " timed out after "
-						+ COMMAND_TIMEOUT_SECONDS + "s.");
+						+ commandTimeoutSeconds + "s.");
 			}
+			// the process has exited so its pipes are closed; the readers finish promptly
+			outReader.join(READER_JOIN_MILLISECONDS);
+			errReader.join(READER_JOIN_MILLISECONDS);
 			final int exitCode = pr.exitValue();
 			if ( exitCode != 0 ) {
 				throw new RuntimeException("Bluetooth action " + action + " failed with exit code "
-						+ exitCode + (buf.length() > 0 ? ": " + buf : "."));
+						+ exitCode + (errBuf.length() > 0 ? ": " + errBuf : "."));
 			}
-			if ( buf.length() > 0 ) {
-				log.warn("Bluetooth action {} reported: {}", action, buf);
+			if ( errBuf.length() > 0 ) {
+				log.warn("Bluetooth action {} reported: {}", action, errBuf);
 			}
 			return result;
 		} catch ( IOException e ) {
 			throw new RuntimeException(e);
 		} catch ( InterruptedException e ) {
+			if ( pr != null ) {
+				pr.destroyForcibly();
+			}
 			Thread.currentThread().interrupt();
 			throw new RuntimeException("Interrupted waiting for bluetooth action " + action, e);
 		}
+	}
+
+	/**
+	 * Start a daemon thread that reads lines from a stream until it closes.
+	 *
+	 * @param in
+	 *        the stream to read
+	 * @param consumer
+	 *        the consumer of each line; it is only safe to read what the
+	 *        consumer collected after the thread has been joined
+	 * @param name
+	 *        the thread name
+	 * @return the started thread
+	 */
+	private Thread captureInputStream(final InputStream in, final Consumer<String> consumer,
+			final String name) {
+		Thread t = new Thread(() -> {
+			try (BufferedReader r = new BufferedReader(new InputStreamReader(in))) {
+				String line;
+				while ( (line = r.readLine()) != null ) {
+					consumer.accept(line);
+				}
+			} catch ( IOException e ) {
+				log.debug("Error reading {}: {}", name, e.getMessage());
+			}
+		}, name);
+		t.setDaemon(true);
+		t.start();
+		return t;
 	}
 
 	/**
@@ -800,6 +848,28 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	 */
 	public void setCommand(String command) {
 		this.command = command;
+	}
+
+	/**
+	 * Get the command timeout.
+	 *
+	 * @return the maximum seconds to wait for the command to complete
+	 */
+	public long getCommandTimeoutSeconds() {
+		return commandTimeoutSeconds;
+	}
+
+	/**
+	 * Set the command timeout.
+	 *
+	 * @param commandTimeoutSeconds
+	 *        the maximum seconds to wait for the command to complete; defaults
+	 *        to {@link #DEFAULT_COMMAND_TIMEOUT_SECONDS}
+	 */
+	public void setCommandTimeoutSeconds(long commandTimeoutSeconds) {
+		if ( commandTimeoutSeconds > 0 ) {
+			this.commandTimeoutSeconds = commandTimeoutSeconds;
+		}
 	}
 
 	/**

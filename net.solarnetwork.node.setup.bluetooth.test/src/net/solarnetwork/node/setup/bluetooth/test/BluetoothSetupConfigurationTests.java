@@ -311,11 +311,65 @@ public class BluetoothSetupConfigurationTests {
 	}
 
 	@Test
-	public void instruction_restart() throws IOException {
+	public void instruction_restart_whenOff_leavesRadioOff() throws IOException {
 		replayAll();
 		InstructionStatus status = service.processInstruction(instruction("restart", null));
 		assertThat(status.getInstructionState(), is(InstructionState.Completed));
+		Status s = (Status) status.getResultParameters().get(InstructionHandler.PARAM_SERVICE_RESULT);
+		assertThat("restart never turns a gated-off radio on", s.isRadioActive(), is(false));
+		assertThat(radioState(), is(false));
 		assertThat(actions(), contains("restart"));
+	}
+
+	@Test
+	public void instruction_restart_whenOn_keepsRadioOn() throws IOException {
+		expect(opModesService.enableOperationalModes(eq(Set.of(OP_MODE)), anyObject()))
+				.andReturn(Set.of(OP_MODE));
+		expect(opModesService.activeOperationalModesWithExpirations()).andReturn(Map.of()).anyTimes();
+		replayAll();
+		service.processInstruction(instruction("enable", null));
+		assertThat(radioState(), is(true));
+
+		InstructionStatus status = service.processInstruction(instruction("restart", null));
+
+		assertThat(status.getInstructionState(), is(InstructionState.Completed));
+		Status s = (Status) status.getResultParameters().get(InstructionHandler.PARAM_SERVICE_RESULT);
+		assertThat(s.isRadioActive(), is(true));
+		assertThat(radioState(), is(true));
+		assertThat(actions(), contains("enable", "restart"));
+	}
+
+	@Test
+	public void executeAction_hang_timesOut() throws IOException {
+		replayAll();
+		service.setCommandTimeoutSeconds(1);
+		File hangFile = new File(tmpFile.getAbsolutePath() + ".hang");
+		try {
+			Files.writeString(hangFile.toPath(), "");
+			final long start = System.nanoTime();
+			Status s = service.currentStatus();
+			final long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+			assertThat("hung helper reported as unknown status", s, is(nullValue()));
+			assertThat("timeout enforced from process start, not after output", elapsedMs < 10_000L,
+					is(true));
+		} finally {
+			hangFile.delete();
+		}
+	}
+
+	@Test
+	public void executeAction_largeStderr_doesNotDeadlock() throws IOException {
+		replayAll();
+		service.setCommandTimeoutSeconds(10);
+		File noisyFile = new File(tmpFile.getAbsolutePath() + ".noisy");
+		try {
+			Files.writeString(noisyFile.toPath(), "");
+			Status s = service.currentStatus();
+			assertThat("status parsed despite large stderr output", s, is(notNullValue()));
+			assertThat(s.isRadioActive(), is(false));
+		} finally {
+			noisyFile.delete();
+		}
 	}
 
 	@Test
@@ -501,7 +555,7 @@ public class BluetoothSetupConfigurationTests {
 		replayAll();
 		List<net.solarnetwork.settings.SettingSpecifier> specs = service.getSettingSpecifiers();
 		assertThat(specs, is(notNullValue()));
-		assertThat(specs.size(), equalTo(12));
+		assertThat(specs.size(), equalTo(13));
 	}
 
 }
