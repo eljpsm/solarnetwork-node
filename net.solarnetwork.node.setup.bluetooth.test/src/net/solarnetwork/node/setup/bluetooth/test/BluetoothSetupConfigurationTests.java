@@ -133,8 +133,8 @@ public class BluetoothSetupConfigurationTests {
 		if ( !logFile.exists() ) {
 			return Collections.emptyList();
 		}
-		return Files.readAllLines(logFile.toPath()).stream()
-				.map(l -> l.split(" ")[1]).filter(a -> !"status".equals(a)).toList();
+		return Files.readAllLines(logFile.toPath()).stream().map(l -> l.split(" ")[1])
+				.filter(a -> !"status".equals(a)).toList();
 	}
 
 	private boolean radioState() throws IOException {
@@ -157,7 +157,8 @@ public class BluetoothSetupConfigurationTests {
 		if ( extra != null ) {
 			params.putAll(extra);
 		}
-		return InstructionUtils.createLocalInstruction(InstructionHandler.TOPIC_SYSTEM_CONFIGURE, params);
+		return InstructionUtils.createLocalInstruction(InstructionHandler.TOPIC_SYSTEM_CONFIGURE,
+				params);
 	}
 
 	private Event modesEvent(String... activeModes) {
@@ -193,9 +194,10 @@ public class BluetoothSetupConfigurationTests {
 			}
 		};
 		Map<String, PingTestResultDisplay> results = new HashMap<>();
-		results.put(test.getPingTestId(), new PingTestResultDisplay(test,
-				new PingTestResult(success, success ? "OK" : "No MQTT connection available."),
-				Instant.now()));
+		results.put(test.getPingTestId(),
+				new PingTestResultDisplay(test,
+						new PingTestResult(success, success ? "OK" : "No MQTT connection available."),
+						Instant.now()));
 		return new PingTestResults(Instant.now(), results);
 	}
 
@@ -388,8 +390,7 @@ public class BluetoothSetupConfigurationTests {
 	public void offline_clearsOnlyAfterGrace() throws IOException {
 		service.setOfflineThresholdMinutes(1);
 		service.setOnlineGraceMinutes(3);
-		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false))
-				.times(2);
+		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false)).times(2);
 		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(true))
 				.anyTimes();
 		replayAll();
@@ -418,14 +419,10 @@ public class BluetoothSetupConfigurationTests {
 	public void offline_graceResetsOnNewFailure() throws IOException {
 		service.setOfflineThresholdMinutes(1);
 		service.setOnlineGraceMinutes(2);
-		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false))
-				.times(2);
-		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(true))
-				.times(1);
-		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false))
-				.times(1);
-		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(true))
-				.times(2);
+		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false)).times(2);
+		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(true)).times(1);
+		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false)).times(1);
+		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(true)).times(2);
 		replayAll();
 
 		service.watchdogTick();
@@ -491,7 +488,8 @@ public class BluetoothSetupConfigurationTests {
 			Files.writeString(failFile.toPath(), "");
 			InstructionStatus status = service.processInstruction(instruction("restart", null));
 			assertThat(status.getInstructionState(), is(InstructionState.Declined));
-			assertThat(String.valueOf(status.getResultParameters().get(InstructionHandler.PARAM_MESSAGE)),
+			assertThat(
+					String.valueOf(status.getResultParameters().get(InstructionHandler.PARAM_MESSAGE)),
 					org.hamcrest.Matchers.containsString("exit code 3"));
 		} finally {
 			failFile.delete();

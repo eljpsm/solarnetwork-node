@@ -105,8 +105,8 @@ import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
  * @author elijah
  * @version 1.0
  */
-public class BluetoothSetupConfiguration extends BaseIdentifiable implements SettingSpecifierProvider,
-		SettingsChangeObserver, InstructionHandler, EventHandler {
+public class BluetoothSetupConfiguration extends BaseIdentifiable
+		implements SettingSpecifierProvider, SettingsChangeObserver, InstructionHandler, EventHandler {
 
 	/** The {@code solarcfg} service name for the Bluetooth radio. */
 	public static final String CONFIG_SERVICE = "bluetooth";
@@ -261,8 +261,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable implements Set
 
 	@Override
 	public void handleEvent(Event event) {
-		if ( event == null
-				|| !OperationalModesService.EVENT_TOPIC_OPERATIONAL_MODES_CHANGED.equals(event.getTopic()) ) {
+		if ( event == null || !OperationalModesService.EVENT_TOPIC_OPERATIONAL_MODES_CHANGED
+				.equals(event.getTopic()) ) {
 			return;
 		}
 		final boolean active;
@@ -456,7 +456,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable implements Set
 			onlineSince = null;
 			if ( offlineSince == null ) {
 				offlineSince = now;
-				log.info("SolarNetwork connection lost; Bluetooth setup radio will turn on after {} minutes",
+				log.info(
+						"SolarNetwork connection lost; Bluetooth setup radio will turn on after {} minutes",
 						offlineThresholdMinutes);
 			}
 			if ( !offline && !Duration.between(offlineSince, now)
@@ -470,7 +471,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable implements Set
 			if ( offline ) {
 				if ( onlineSince == null ) {
 					onlineSince = now;
-					log.info("SolarNetwork connection restored; Bluetooth setup radio will turn off after {} minutes",
+					log.info(
+							"SolarNetwork connection restored; Bluetooth setup radio will turn off after {} minutes",
 							onlineGraceMinutes);
 				}
 				if ( !Duration.between(onlineSince, now).minus(Duration.ofMinutes(onlineGraceMinutes))
@@ -495,8 +497,7 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable implements Set
 		final List<SettingSpecifier> result = new ArrayList<>(12);
 		result.add(new BasicTitleSettingSpecifier("status", statusMessage(status)));
 
-		BasicTextFieldSettingSpecifier enable = new BasicTextFieldSettingSpecifier("enableMinutes",
-				"0");
+		BasicTextFieldSettingSpecifier enable = new BasicTextFieldSettingSpecifier("enableMinutes", "0");
 		enable.setTransient(true);
 		result.add(enable);
 
@@ -528,8 +529,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable implements Set
 		}
 		final List<String> reasons = new ArrayList<>(3);
 		if ( status.isAlwaysOn() ) {
-			reasons.add(messageSource.getMessage("status.alwaysOn", null, "always on",
-					Locale.getDefault()));
+			reasons.add(
+					messageSource.getMessage("status.alwaysOn", null, "always on", Locale.getDefault()));
 		}
 		if ( status.isOpModeActive() ) {
 			Object expires = (status.getOpModeExpires() != null
@@ -540,9 +541,9 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable implements Set
 					"operational mode active", Locale.getDefault()));
 		}
 		if ( status.isOffline() ) {
-			reasons.add(messageSource.getMessage("status.offline",
-					new Object[] { status.getOfflineSince() }, "SolarNetwork offline",
-					Locale.getDefault()));
+			reasons.add(
+					messageSource.getMessage("status.offline", new Object[] { status.getOfflineSince() },
+							"SolarNetwork offline", Locale.getDefault()));
 		}
 		String state = messageSource.getMessage(status.isRadioActive() ? "status.on" : "status.off",
 				null, status.isRadioActive() ? "On" : "Off", Locale.getDefault());
