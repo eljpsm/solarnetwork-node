@@ -43,13 +43,18 @@ do_status () {
 	fi
 	s="$(current_state)"
 	echo "active: $s"
-	echo "enabled: false"
+	echo "enabled: $s"
 	echo "discoverable: $s"
 	echo "powered: $s"
 	echo "adapter: hci0"
 }
 
 do_enable () {
+	# "$0.failenable": simulate a helper that cannot start the peripheral
+	if [ -e "$0.failenable" ]; then
+		echo "Unable to start peripheral." 1>&2
+		exit 3
+	fi
 	echo true >"$STATE"
 	echo "Bluetooth setup radio enabled."
 }

@@ -32,6 +32,8 @@ import java.io.InputStreamReader;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -61,27 +63,33 @@ import net.solarnetwork.node.service.support.BaseIdentifiable;
 import net.solarnetwork.settings.SettingSpecifier;
 import net.solarnetwork.settings.SettingSpecifierProvider;
 import net.solarnetwork.settings.SettingsChangeObserver;
+import net.solarnetwork.settings.support.BasicTextAreaSettingSpecifier;
 import net.solarnetwork.settings.support.BasicTextFieldSettingSpecifier;
 import net.solarnetwork.settings.support.BasicTitleSettingSpecifier;
 import net.solarnetwork.settings.support.BasicToggleSettingSpecifier;
+import net.solarnetwork.util.DateUtils;
 
 /**
- * Settings provider and instruction handler that turns the Bluetooth setup
- * radio on only while it is needed.
+ * Settings provider and instruction handler that controls when the Bluetooth
+ * setup radio is on.
  *
  * <p>
- * The radio is <b>off</b> unless at least one of the following holds:
+ * By default the radio is always on. Turning {@link #isAlwaysOn()} off gates
+ * the radio: it is then <b>off</b> unless at least one of the following holds:
  * </p>
  *
  * <ol>
- * <li>the {@link #getOpMode()} operational mode is active. SolarNetwork can
- * enable this remotely with the {@code EnableOperationalModes} instruction
- * (with an {@code Expiration}), and a Bluetooth client can enable it with the
- * {@code enable} action of this service (see below);</li>
+ * <li>the {@link #getSchedule()} availability schedule applies at the current
+ * time in the {@link #getTimeZone()} zone (see {@link AvailabilitySchedule} for
+ * the syntax). An unparseable schedule or an invalid zone never applies, so a
+ * mistake can only narrow availability;</li>
+ * <li>the {@link #getOpMode()} operational mode is active, as an override.
+ * SolarNetwork can enable this remotely with the {@code EnableOperationalModes}
+ * instruction (with an {@code Expiration}), and a Bluetooth client can enable
+ * it with the {@code enable} action of this service (see below);</li>
  * <li>the node has been unable to reach SolarNetwork for at least
  * {@link #getOfflineThresholdMinutes()} minutes, until
- * {@link #getOnlineGraceMinutes()} minutes after it can again;</li>
- * <li>the {@link #isAlwaysOn()} setting is {@literal true}.</li>
+ * {@link #getOnlineGraceMinutes()} minutes after it can again.</li>
  * </ol>
  *
  * <p>
@@ -166,7 +174,12 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	/** The default value for the {@code commandTimeoutSeconds} property. */
 	public static final long DEFAULT_COMMAND_TIMEOUT_SECONDS = 60L;
 
-	/** The time to wait for the output reader threads after the process exits. */
+	/** The number of seconds between availability schedule checks. */
+	public static final int SCHEDULE_TICK_SECONDS = 15;
+
+	/**
+	 * The time to wait for the output reader threads after the process exits.
+	 */
 	private static final long READER_JOIN_MILLISECONDS = 5000L;
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
@@ -180,7 +193,9 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	private String command = DEFAULT_COMMAND;
 	private long commandTimeoutSeconds = DEFAULT_COMMAND_TIMEOUT_SECONDS;
 	private String opMode = DEFAULT_OP_MODE;
-	private boolean alwaysOn = false;
+	private boolean alwaysOn = true;
+	private String schedule = "";
+	private String timeZone = "";
 	private boolean offlineTriggerEnabled = true;
 	private int offlineThresholdMinutes = DEFAULT_OFFLINE_THRESHOLD_MINUTES;
 	private int onlineGraceMinutes = DEFAULT_ONLINE_GRACE_MINUTES;
@@ -196,6 +211,12 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	private Instant onlineSince = null;
 	private ScheduledFuture<?> watchdogFuture = null;
 	private int watchdogScheduledIntervalSeconds = 0;
+	private @Nullable AvailabilitySchedule availability = null;
+	private @Nullable String scheduleError = null;
+	private @Nullable ZoneId zone = null;
+	private ScheduledFuture<?> scheduleFuture = null;
+	private @Nullable Boolean lastScheduleAllows = null;
+	private boolean lastReconcileOk = false;
 
 	/**
 	 * Constructor.
@@ -227,8 +248,10 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	 */
 	public synchronized void startup() {
 		opModeActive = opModesService.isOperationalModeActive(opMode);
+		applySchedule();
 		reconcileQuietly();
 		scheduleWatchdog();
+		scheduleScheduleTick();
 	}
 
 	/**
@@ -241,6 +264,7 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	 */
 	public synchronized void shutdown() {
 		cancelWatchdog();
+		cancelScheduleTick();
 	}
 
 	@Override
@@ -264,7 +288,9 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 		if ( watchdogFuture == null ) {
 			scheduleWatchdog();
 		}
+		applySchedule();
 		reconcileQuietly();
+		scheduleScheduleTick();
 	}
 
 	@Override
@@ -381,7 +407,98 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	 * @return {@literal true} if the radio should be on
 	 */
 	public synchronized boolean desiredState() {
-		return (alwaysOn || opModeActive || (offlineTriggerEnabled && offline));
+		return (alwaysOn || scheduleAllows() || opModeActive || (offlineTriggerEnabled && offline));
+	}
+
+	/**
+	 * Test if the availability schedule applies now.
+	 *
+	 * <p>
+	 * A blank schedule, an unparseable schedule, or an invalid time zone never
+	 * applies.
+	 * </p>
+	 *
+	 * @return {@literal true} if the schedule allows the radio on now
+	 */
+	public synchronized boolean scheduleAllows() {
+		final AvailabilitySchedule sched = this.availability;
+		final ZoneId z = this.zone;
+		if ( sched == null || sched.isEmpty() || scheduleError != null || z == null ) {
+			return false;
+		}
+		return sched.applies(LocalDateTime.ofInstant(clock.instant(), z));
+	}
+
+	/**
+	 * Parse the configured schedule and time zone.
+	 *
+	 * <p>
+	 * Never throws: a parse error is recorded in {@code scheduleError} and the
+	 * schedule then never applies.
+	 * </p>
+	 */
+	private void applySchedule() {
+		String error = null;
+		AvailabilitySchedule sched = null;
+		ZoneId z = null;
+		try {
+			sched = AvailabilitySchedule.parse(schedule);
+		} catch ( IllegalArgumentException e ) {
+			error = e.getMessage();
+		}
+		try {
+			z = DateUtils.tz(timeZone == null || timeZone.isBlank() ? null : timeZone.trim());
+		} catch ( IllegalArgumentException e ) {
+			error = (error != null ? error + "; " : "") + e.getMessage();
+		}
+		if ( error != null && !error.equals(this.scheduleError) ) {
+			log.warn("Bluetooth setup schedule is invalid and will not apply: {}", error);
+		}
+		this.availability = sched;
+		this.zone = z;
+		this.scheduleError = error;
+		this.lastScheduleAllows = null;
+	}
+
+	/**
+	 * Check the availability schedule and reconcile the radio if it has crossed
+	 * a window edge since the last check.
+	 */
+	public synchronized void scheduleTick() {
+		final boolean allows = scheduleAllows();
+		if ( lastScheduleAllows != null && lastScheduleAllows.booleanValue() == allows ) {
+			return;
+		}
+		log.info("Bluetooth setup schedule now {} the radio on", allows ? "allows" : "does not allow");
+		// only treat the edge as handled once the radio really followed it, so a
+		// failed helper call is retried on the next tick
+		lastScheduleAllows = (reconcileQuietly() ? Boolean.valueOf(allows) : null);
+	}
+
+	private void scheduleScheduleTick() {
+		final AvailabilitySchedule sched = this.availability;
+		final boolean wanted = (!alwaysOn && sched != null && !sched.isEmpty() && scheduleError == null
+				&& taskScheduler != null);
+		if ( !wanted ) {
+			cancelScheduleTick();
+			return;
+		}
+		// the caller has just reconciled; seed the edge detector from that result so
+		// the first tick does not report a false edge (or does retry a failed one)
+		lastScheduleAllows = (lastReconcileOk ? Boolean.valueOf(scheduleAllows()) : null);
+		if ( scheduleFuture != null ) {
+			return;
+		}
+		final Duration interval = Duration.ofSeconds(SCHEDULE_TICK_SECONDS);
+		scheduleFuture = taskScheduler.scheduleWithFixedDelay(this::scheduleTick,
+				clock.instant().plus(interval), interval);
+	}
+
+	private void cancelScheduleTick() {
+		if ( scheduleFuture != null ) {
+			scheduleFuture.cancel(false);
+			scheduleFuture = null;
+		}
 	}
 
 	/**
@@ -392,12 +509,12 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	 * self-healing.
 	 * </p>
 	 */
-	public synchronized void reconcile() {
+	public synchronized boolean reconcile() {
 		final boolean want = desiredState();
 		final Status status = currentStatus();
 		if ( status == null ) {
 			log.warn("Unable to determine Bluetooth setup radio status; not changing state.");
-			return;
+			return false;
 		}
 		if ( want != status.isRadioActive() ) {
 			log.info("Turning Bluetooth setup radio {}", want ? "ON" : "OFF");
@@ -408,14 +525,23 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 			log.info("Bluetooth adapter is on while the setup radio should be off; turning it off");
 			executeAction(ACTION_DISABLE);
 		}
+		return true;
 	}
 
-	private void reconcileQuietly() {
+	/**
+	 * Reconcile, logging instead of throwing on failure.
+	 *
+	 * @return {@literal true} if the radio is known to be in the desired state
+	 */
+	private boolean reconcileQuietly() {
+		boolean ok = false;
 		try {
-			reconcile();
+			ok = reconcile();
 		} catch ( Exception e ) {
 			log.warn("Error reconciling Bluetooth setup radio state: {}", e.getMessage());
 		}
+		lastReconcileOk = ok;
+		return ok;
 	}
 
 	private void scheduleWatchdog() {
@@ -506,14 +632,16 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	@Override
 	public List<SettingSpecifier> getSettingSpecifiers() {
 		final Status status = currentStatus();
-		final List<SettingSpecifier> result = new ArrayList<>(12);
+		final List<SettingSpecifier> result = new ArrayList<>(16);
 		result.add(new BasicTitleSettingSpecifier("status", statusMessage(status)));
 
 		BasicTextFieldSettingSpecifier enable = new BasicTextFieldSettingSpecifier("enableMinutes", "0");
 		enable.setTransient(true);
 		result.add(enable);
 
-		result.add(new BasicToggleSettingSpecifier("alwaysOn", Boolean.FALSE));
+		result.add(new BasicToggleSettingSpecifier("alwaysOn", Boolean.TRUE));
+		result.add(new BasicTextAreaSettingSpecifier("schedule", "", true));
+		result.add(new BasicTextFieldSettingSpecifier("timeZone", ""));
 		result.add(new BasicTextFieldSettingSpecifier("opMode", DEFAULT_OP_MODE));
 		result.add(new BasicTextFieldSettingSpecifier("defaultDurationSeconds",
 				String.valueOf(DEFAULT_DEFAULT_DURATION_SECONDS)));
@@ -559,6 +687,27 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 					messageSource.getMessage("status.offline", new Object[] { status.getOfflineSince() },
 							"SolarNetwork offline", Locale.getDefault()));
 		}
+		if ( status.getScheduleError() != null ) {
+			reasons.add(messageSource.getMessage("status.scheduleInvalid",
+					new Object[] { status.getScheduleError() }, "schedule invalid",
+					Locale.getDefault()));
+		} else if ( status.getSchedule() != null && !status.getSchedule().isEmpty() ) {
+			if ( status.getScheduleNext() == null && !status.isScheduleActive() ) {
+				reasons.add(messageSource.getMessage("status.scheduleNextNone",
+						new Object[] { status.getSchedule(), status.getTimeZone() },
+						"schedule has no window within the next year", Locale.getDefault()));
+			} else {
+				Object next = (status.getScheduleNext() != null
+						? Instant.ofEpochMilli(status.getScheduleNext())
+						: messageSource.getMessage("status.noExpiry", null, "no expiry",
+								Locale.getDefault()));
+				reasons.add(messageSource.getMessage(
+						status.isScheduleActive() ? "status.schedule" : "status.scheduleNext",
+						new Object[] { status.getSchedule(), status.getTimeZone(), next },
+						status.isScheduleActive() ? "schedule active" : "schedule inactive",
+						Locale.getDefault()));
+			}
+		}
 		String state = messageSource.getMessage(status.isRadioActive() ? "status.on" : "status.off",
 				null, status.isRadioActive() ? "On" : "Off", Locale.getDefault());
 		if ( reasons.isEmpty() ) {
@@ -581,10 +730,16 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 		private final boolean offline;
 		private final Instant offlineSince;
 		private final boolean alwaysOn;
+		private final String schedule;
+		private final boolean scheduleActive;
+		private final String scheduleError;
+		private final Long scheduleNext;
+		private final String timeZone;
 
 		private Status(boolean radioActive, boolean discoverable, boolean powered,
 				boolean installEnabled, boolean opModeActive, Long opModeExpires, boolean offline,
-				Instant offlineSince, boolean alwaysOn) {
+				Instant offlineSince, boolean alwaysOn, String schedule, boolean scheduleActive,
+				String scheduleError, Long scheduleNext, String timeZone) {
 			super();
 			this.radioActive = radioActive;
 			this.discoverable = discoverable;
@@ -595,13 +750,18 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 			this.offline = offline;
 			this.offlineSince = offlineSince;
 			this.alwaysOn = alwaysOn;
+			this.schedule = schedule;
+			this.scheduleActive = scheduleActive;
+			this.scheduleError = scheduleError;
+			this.scheduleNext = scheduleNext;
+			this.timeZone = timeZone;
 		}
 
 		/**
 		 * Get the radio active state.
 		 *
-		 * @return {@literal true} if the Bluetooth peripheral is running (and so
-		 *         advertising)
+		 * @return {@literal true} if the Bluetooth peripheral is running (and
+		 *         so advertising)
 		 */
 		public boolean isRadioActive() {
 			return radioActive;
@@ -628,8 +788,9 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 		/**
 		 * Get the OS install-enabled state.
 		 *
-		 * @return {@literal true} if the OS has the peripheral service enabled to
-		 *         start at boot (legacy always-on install mode)
+		 * @return {@literal true} if the OS has the peripheral service enabled
+		 *         to start at boot, which the helper sets to the last enable or
+		 *         disable decision
 		 */
 		public boolean isInstallEnabled() {
 			return installEnabled;
@@ -657,8 +818,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 		/**
 		 * Get the offline trigger state.
 		 *
-		 * @return {@literal true} if the offline trigger is currently holding the
-		 *         radio on
+		 * @return {@literal true} if the offline trigger is currently holding
+		 *         the radio on
 		 */
 		public boolean isOffline() {
 			return offline;
@@ -680,6 +841,55 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 		 */
 		public boolean isAlwaysOn() {
 			return alwaysOn;
+		}
+
+		/**
+		 * Get the availability schedule.
+		 *
+		 * @return the schedule in canonical form, empty if none is configured
+		 */
+		public String getSchedule() {
+			return schedule;
+		}
+
+		/**
+		 * Get the schedule active state.
+		 *
+		 * @return {@literal true} if the availability schedule currently allows
+		 *         the radio on
+		 */
+		public boolean isScheduleActive() {
+			return scheduleActive;
+		}
+
+		/**
+		 * Get the schedule error.
+		 *
+		 * @return the reason the configured schedule or time zone could not be
+		 *         used, or {@literal null} if it is valid
+		 */
+		public String getScheduleError() {
+			return scheduleError;
+		}
+
+		/**
+		 * Get the next schedule boundary.
+		 *
+		 * @return the time the schedule next starts or stops allowing the radio
+		 *         on, as milliseconds since the epoch, or {@literal null}
+		 */
+		public Long getScheduleNext() {
+			return scheduleNext;
+		}
+
+		/**
+		 * Get the effective time zone.
+		 *
+		 * @return the zone ID the schedule is evaluated in, or {@literal null}
+		 *         if the configured zone is invalid
+		 */
+		public String getTimeZone() {
+			return timeZone;
 		}
 	}
 
@@ -737,8 +947,22 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 				log.debug("Error getting operational mode expirations: {}", e.getMessage());
 			}
 		}
+		final AvailabilitySchedule sched = this.availability;
+		final ZoneId z = this.zone;
+		Long next = null;
+		boolean schedActive = false;
+		if ( sched != null && !sched.isEmpty() && scheduleError == null && z != null ) {
+			LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), z);
+			schedActive = sched.applies(now);
+			LocalDateTime boundary = sched.nextBoundary(now, z);
+			if ( boundary != null ) {
+				next = boundary.atZone(z).toInstant().toEpochMilli();
+			}
+		}
 		return new Status(active, discoverable, powered, enabled, opModeActive, expires,
-				offlineTriggerEnabled && offline, offlineSince, alwaysOn);
+				offlineTriggerEnabled && offline, offlineSince, alwaysOn,
+				sched != null ? sched.toString() : "", schedActive, scheduleError, next,
+				z != null ? z.getId() : null);
 	}
 
 	private synchronized List<String> executeAction(final String action, String... args) {
@@ -913,6 +1137,45 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	}
 
 	/**
+	 * Get the availability schedule text.
+	 *
+	 * @return the schedule
+	 */
+	public String getSchedule() {
+		return schedule;
+	}
+
+	/**
+	 * Set the availability schedule text.
+	 *
+	 * @param schedule
+	 *        the schedule to set; see {@link AvailabilitySchedule} for the
+	 *        syntax
+	 */
+	public void setSchedule(String schedule) {
+		this.schedule = (schedule != null ? schedule : "");
+	}
+
+	/**
+	 * Get the schedule time zone.
+	 *
+	 * @return the zone ID, or empty for the system default zone
+	 */
+	public String getTimeZone() {
+		return timeZone;
+	}
+
+	/**
+	 * Set the schedule time zone.
+	 *
+	 * @param timeZone
+	 *        the zone ID to set, or empty for the system default zone
+	 */
+	public void setTimeZone(String timeZone) {
+		this.timeZone = (timeZone != null ? timeZone : "");
+	}
+
+	/**
 	 * Get the offline trigger enabled setting.
 	 *
 	 * @return {@literal true} to turn the radio on while SolarNetwork is
@@ -988,8 +1251,8 @@ public class BluetoothSetupConfiguration extends BaseIdentifiable
 	 * Set the watchdog interval.
 	 *
 	 * @param watchdogIntervalSeconds
-	 *        the seconds between connectivity checks; {@literal 0} disables
-	 *        the watchdog
+	 *        the seconds between connectivity checks; {@literal 0} disables the
+	 *        watchdog
 	 */
 	public void setWatchdogIntervalSeconds(int watchdogIntervalSeconds) {
 		this.watchdogIntervalSeconds = watchdogIntervalSeconds;

@@ -29,6 +29,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -43,6 +44,8 @@ import java.nio.file.Files;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.HashMap;
@@ -50,6 +53,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledFuture;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.After;
@@ -57,6 +61,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.osgi.service.event.Event;
 import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.util.FileCopyUtils;
 import net.solarnetwork.domain.InstructionStatus.InstructionState;
 import net.solarnetwork.node.reactor.Instruction;
@@ -66,11 +71,16 @@ import net.solarnetwork.node.reactor.InstructionUtils;
 import net.solarnetwork.node.service.OperationalModesService;
 import net.solarnetwork.node.service.SystemHealthService;
 import net.solarnetwork.node.service.SystemHealthService.PingTestResults;
+import net.solarnetwork.node.setup.bluetooth.AvailabilitySchedule;
 import net.solarnetwork.node.setup.bluetooth.BluetoothSetupConfiguration;
 import net.solarnetwork.node.setup.bluetooth.BluetoothSetupConfiguration.Status;
 import net.solarnetwork.service.PingTest;
 import net.solarnetwork.service.PingTestResult;
 import net.solarnetwork.service.PingTestResultDisplay;
+import net.solarnetwork.settings.KeyedSettingSpecifier;
+import net.solarnetwork.settings.SettingSpecifier;
+import net.solarnetwork.settings.TextAreaSettingSpecifier;
+import net.solarnetwork.settings.TitleSettingSpecifier;
 
 /**
  * Test cases for the {@link BluetoothSetupConfiguration} class.
@@ -96,6 +106,9 @@ public class BluetoothSetupConfigurationTests {
 		systemHealthService = EasyMock.createMock(SystemHealthService.class);
 		// no task scheduler: reconcile runs inline, which keeps the tests deterministic
 		service = new BluetoothSetupConfiguration(opModesService, null, systemHealthService);
+		// the production default is always on; these tests exercise the gated
+		// behaviour so start with the gate closed
+		service.setAlwaysOn(false);
 
 		// copy script to file so test can run via JAR (i.e. Ant)
 		tmpFile = File.createTempFile("solarcfg-", ".sh");
@@ -135,6 +148,10 @@ public class BluetoothSetupConfigurationTests {
 		}
 		return Files.readAllLines(logFile.toPath()).stream().map(l -> l.split(" ")[1])
 				.filter(a -> !"status".equals(a)).toList();
+	}
+
+	private int rawLogLines() throws IOException {
+		return (logFile.exists() ? Files.readAllLines(logFile.toPath()).size() : 0);
 	}
 
 	private boolean radioState() throws IOException {
@@ -417,6 +434,19 @@ public class BluetoothSetupConfigurationTests {
 	}
 
 	@Test
+	public void defaultAlwaysOn_turnsRadioOn() throws IOException {
+		replayAll();
+		// a fresh instance with no configuration at all must turn the radio on
+		BluetoothSetupConfiguration fresh = new BluetoothSetupConfiguration(opModesService, null,
+				systemHealthService);
+		fresh.setCommand(tmpFile.getAbsolutePath());
+		assertThat(fresh.isAlwaysOn(), is(true));
+		fresh.reconcile();
+		assertThat(actions(), contains("enable"));
+		assertThat(radioState(), is(true));
+	}
+
+	@Test
 	public void offline_triggersOnlyAfterThreshold() throws IOException {
 		service.setOfflineThresholdMinutes(2);
 		expect(systemHealthService.performPingTests(anyObject())).andReturn(pingResults(false))
@@ -553,9 +583,360 @@ public class BluetoothSetupConfigurationTests {
 	@Test
 	public void settings() {
 		replayAll();
-		List<net.solarnetwork.settings.SettingSpecifier> specs = service.getSettingSpecifiers();
+		List<SettingSpecifier> specs = service.getSettingSpecifiers();
 		assertThat(specs, is(notNullValue()));
-		assertThat(specs.size(), equalTo(13));
+		assertThat(specs.size(), equalTo(15));
+		KeyedSettingSpecifier<?> alwaysOn = specs.stream()
+				.filter(KeyedSettingSpecifier.class::isInstance).map(KeyedSettingSpecifier.class::cast)
+				.filter(k -> "alwaysOn".equals(k.getKey())).findFirst().orElse(null);
+		assertThat(alwaysOn, is(notNullValue()));
+		assertThat("always on by default", alwaysOn.getDefaultValue(), equalTo(Boolean.TRUE));
+		KeyedSettingSpecifier<?> schedule = specs.stream()
+				.filter(KeyedSettingSpecifier.class::isInstance).map(KeyedSettingSpecifier.class::cast)
+				.filter(k -> "schedule".equals(k.getKey())).findFirst().orElse(null);
+		assertThat(schedule, instanceOf(TextAreaSettingSpecifier.class));
+		assertThat(((TextAreaSettingSpecifier) schedule).isDirect(), is(true));
+	}
+
+	private void startupWithSchedule(String schedule, String timeZone) {
+		service.setSchedule(schedule);
+		service.setTimeZone(timeZone);
+		service.startup();
+	}
+
+	@Test
+	public void schedule_insideWindow_turnsOn() throws IOException {
+		// START is 2026-10-06T00:00Z, a Tuesday; 13:00 NZDT in Pacific/Auckland
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+
+		startupWithSchedule("Mon-Fri 07:00-18:00", "Pacific/Auckland");
+
+		assertThat(radioState(), is(true));
+		assertThat(actions(), contains("enable"));
+		Status s = service.currentStatus();
+		assertThat(s.isScheduleActive(), is(true));
+		assertThat(s.getScheduleError(), is(nullValue()));
+		assertThat(s.getTimeZone(), equalTo("Pacific/Auckland"));
+	}
+
+	@Test
+	public void schedule_outsideWindow_staysOff() throws IOException {
+		// 00:00 UTC is outside the window
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+
+		startupWithSchedule("Mon-Fri 07:00-18:00", "UTC");
+
+		assertThat(radioState(), is(false));
+		assertThat(actions(), is(empty()));
+		Status s = service.currentStatus();
+		assertThat(s.isScheduleActive(), is(false));
+		assertThat("next window start", s.getScheduleNext(),
+				equalTo(START.plus(Duration.ofHours(7)).toEpochMilli()));
+	}
+
+	@Test
+	public void schedule_blankZone_usesSystemDefault() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+
+		startupWithSchedule("Mon-Fri 07:00-18:00", "");
+
+		Status s = service.currentStatus();
+		assertThat(s.getTimeZone(), equalTo(ZoneId.systemDefault().getId()));
+		boolean expected = AvailabilitySchedule.parse("Mon-Fri 07:00-18:00")
+				.applies(LocalDateTime.ofInstant(START, ZoneId.systemDefault()));
+		assertThat(radioState(), is(expected));
+	}
+
+	@Test
+	public void schedule_invalidZone_failsClosed() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+
+		startupWithSchedule("*", "Mars/Olympus");
+
+		assertThat(radioState(), is(false));
+		Status s = service.currentStatus();
+		assertThat(s.getScheduleError(), containsString("Mars/Olympus"));
+		assertThat(s.getTimeZone(), is(nullValue()));
+		assertThat(s.isScheduleActive(), is(false));
+	}
+
+	@Test
+	public void schedule_invalid_failsClosed() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+
+		startupWithSchedule("Mon-Fri 25:00-26:00", "UTC");
+
+		assertThat(radioState(), is(false));
+		Status s = service.currentStatus();
+		assertThat(s.getScheduleError(), containsString("Window 1"));
+		SettingSpecifier title = service.getSettingSpecifiers().get(0);
+		assertThat(title, instanceOf(TitleSettingSpecifier.class));
+		assertThat(String.valueOf(((TitleSettingSpecifier) title).getDefaultValue()),
+				containsString("invalid"));
+		// the instruction result carries the error too
+		InstructionStatus status = service.processInstruction(instruction("status", null));
+		Status result = (Status) status.getResultParameters()
+				.get(InstructionHandler.PARAM_SERVICE_RESULT);
+		assertThat(result.getScheduleError(), containsString("Window 1"));
+	}
+
+	@Test
+	public void schedule_emptyWithAlwaysOnOff_behavesLikeBefore() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+
+		startupWithSchedule("", "UTC");
+
+		assertThat(radioState(), is(false));
+		assertThat(actions(), is(empty()));
+		assertThat(service.currentStatus().getSchedule(), equalTo(""));
+	}
+
+	@Test
+	public void schedule_withAlwaysOn_ignored() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		TaskScheduler scheduler = EasyMock.createStrictMock(TaskScheduler.class);
+		replayAll();
+		replay(scheduler);
+
+		BluetoothSetupConfiguration s = new BluetoothSetupConfiguration(opModesService, scheduler,
+				systemHealthService);
+		s.setCommand(tmpFile.getAbsolutePath());
+		s.setClock(Clock.fixed(START, ZoneOffset.UTC));
+		s.setWatchdogIntervalSeconds(0);
+		s.setSchedule("Mon-Fri 07:00-18:00");
+		s.setTimeZone("UTC"); // window closed at 00:00 UTC
+		s.startup();
+
+		assertThat("always on wins over a closed window", radioState(), is(true));
+		verify(scheduler); // no schedule tick registered while always on
+		s.shutdown();
+	}
+
+	@Test
+	public void scheduleTick_reconcilesOnlyOnEdge() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+		advanceClock(Duration.ofHours(6).plusMinutes(59));
+		startupWithSchedule("Mon-Fri 07:00-18:00", "UTC");
+		service.scheduleTick();
+		assertThat(radioState(), is(false));
+
+		advanceClock(Duration.ofMinutes(1)); // 07:00
+		service.scheduleTick();
+		assertThat(radioState(), is(true));
+
+		advanceClock(Duration.ofMinutes(1)); // 07:01
+		int linesBefore = rawLogLines();
+		service.scheduleTick();
+		assertThat(radioState(), is(true));
+		assertThat("no helper call at all on a non-edge tick", rawLogLines(), equalTo(linesBefore));
+
+		advanceClock(Duration.ofHours(10).plusMinutes(59)); // 18:00
+		service.scheduleTick();
+		assertThat(radioState(), is(false));
+
+		assertThat("exactly one enable and one disable", actions(), contains("enable", "disable"));
+	}
+
+	@Test
+	public void startup_insideWindow_turnsOn() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+		advanceClock(Duration.ofHours(12)); // 12:00 UTC, a reboot mid-window
+
+		startupWithSchedule("Mon-Fri 07:00-18:00", "UTC");
+
+		assertThat(radioState(), is(true));
+		assertThat(actions(), contains("enable"));
+	}
+
+	@Test
+	public void dst_springForward_gapWindowNeverApplies() throws IOException {
+		// NZ clocks go from 02:00 NZST to 03:00 NZDT on Sunday 2026-09-27
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+		service.setClock(Clock.fixed(Instant.parse("2026-09-26T13:59:00Z"), ZoneOffset.UTC)); // 01:59 NZST
+		startupWithSchedule("Sun 02:00-03:00", "Pacific/Auckland");
+		assertThat(radioState(), is(false));
+
+		service.setClock(Clock.fixed(Instant.parse("2026-09-26T14:00:00Z"), ZoneOffset.UTC)); // 03:00 NZDT
+		service.scheduleTick();
+		assertThat(radioState(), is(false));
+
+		service.setClock(Clock.fixed(Instant.parse("2026-09-26T14:30:00Z"), ZoneOffset.UTC)); // 03:30 NZDT
+		service.scheduleTick();
+		assertThat("window inside the gap never applies", radioState(), is(false));
+		assertThat(actions(), is(empty()));
+	}
+
+	@Test
+	public void dst_fallBack_repeatedHourAppliesTwice() throws IOException {
+		// NZ clocks go from 03:00 NZDT back to 02:00 NZST on Sunday 2027-04-04
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+		service.setClock(Clock.fixed(Instant.parse("2027-04-03T13:30:00Z"), ZoneOffset.UTC)); // 02:30 NZDT
+		startupWithSchedule("Sun 02:00-03:00", "Pacific/Auckland");
+		assertThat("first 02:30", radioState(), is(true));
+
+		service.setClock(Clock.fixed(Instant.parse("2027-04-03T14:30:00Z"), ZoneOffset.UTC)); // 02:30 NZST
+		service.scheduleTick();
+		assertThat("second 02:30", radioState(), is(true));
+
+		service.setClock(Clock.fixed(Instant.parse("2027-04-03T15:00:00Z"), ZoneOffset.UTC)); // 03:00 NZST
+		service.scheduleTick();
+		assertThat(radioState(), is(false));
+		assertThat(actions(), contains("enable", "disable"));
+	}
+
+	@Test
+	public void instruction_enable_overridesClosedWindow() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		Capture<Instant> expireCapture = Capture.newInstance();
+		expect(opModesService.enableOperationalModes(eq(Set.of(OP_MODE)), capture(expireCapture)))
+				.andReturn(Set.of(OP_MODE));
+		expect(opModesService.activeOperationalModesWithExpirations()).andReturn(Map.of()).anyTimes();
+		replayAll();
+		startupWithSchedule("Mon-Fri 07:00-18:00", "UTC"); // closed at 00:00 UTC
+		assertThat(radioState(), is(false));
+
+		InstructionStatus status = service
+				.processInstruction(instruction("enable", Map.of("duration", "600")));
+
+		assertThat(status.getInstructionState(), is(InstructionState.Completed));
+		assertThat(expireCapture.getValue(), is(START.plusSeconds(600)));
+		assertThat("override turns the radio on outside the window", radioState(), is(true));
+		Status s = (Status) status.getResultParameters().get(InstructionHandler.PARAM_SERVICE_RESULT);
+		assertThat(s.isScheduleActive(), is(false));
+		assertThat(s.isOpModeActive(), is(true));
+	}
+
+	@Test
+	public void instruction_disable_insideWindow_keepsRadioOn() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		expect(opModesService.disableOperationalModes(Set.of(OP_MODE))).andReturn(Set.of());
+		replayAll();
+		startupWithSchedule("Mon-Fri 07:00-18:00", "Pacific/Auckland"); // 13:00 NZDT, open
+		assertThat(radioState(), is(true));
+
+		InstructionStatus status = service.processInstruction(instruction("disable", null));
+
+		assertThat(status.getInstructionState(), is(InstructionState.Completed));
+		assertThat("schedule keeps the radio on", radioState(), is(true));
+		assertThat(actions(), contains("enable"));
+	}
+
+	@Test
+	public void status_includesScheduleFields() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+		advanceClock(Duration.ofHours(13)); // 13:00 UTC, inside
+		startupWithSchedule("mon-fri 7-18", "UTC");
+
+		Status s = service.currentStatus();
+
+		assertThat(s.getSchedule(), equalTo("* * Mon-Fri 07:00-18:00"));
+		assertThat(s.isScheduleActive(), is(true));
+		assertThat(s.getScheduleError(), is(nullValue()));
+		assertThat(s.getTimeZone(), equalTo("UTC"));
+		assertThat("next boundary is the window end", s.getScheduleNext(),
+				equalTo(START.plus(Duration.ofHours(18)).toEpochMilli()));
+		assertThat(s.isInstallEnabled(), is(true));
+	}
+
+	@Test
+	public void scheduleTick_retriesAfterHelperFailure() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		replayAll();
+		advanceClock(Duration.ofHours(7)); // 07:00, inside the window
+		File failFile = new File(tmpFile.getAbsolutePath() + ".failenable");
+		try {
+			Files.writeString(failFile.toPath(), "");
+			startupWithSchedule("Mon-Fri 07:00-18:00", "UTC");
+			assertThat("enable failed", radioState(), is(false));
+			service.scheduleTick();
+			assertThat("still failing", radioState(), is(false));
+		} finally {
+			failFile.delete();
+		}
+		advanceClock(Duration.ofSeconds(15));
+		service.scheduleTick();
+		assertThat("edge retried once the helper works", radioState(), is(true));
+	}
+
+	@Test
+	public void configurationChanged_registersAndCancelsTick() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		TaskScheduler scheduler = EasyMock.createMock(TaskScheduler.class);
+		@SuppressWarnings({ "unchecked", "rawtypes" })
+		ScheduledFuture future1 = EasyMock.createMock(ScheduledFuture.class);
+		@SuppressWarnings({ "unchecked", "rawtypes" })
+		ScheduledFuture future2 = EasyMock.createMock(ScheduledFuture.class);
+		expect(scheduler.scheduleWithFixedDelay(anyObject(Runnable.class), anyObject(Instant.class),
+				eq(Duration.ofSeconds(BluetoothSetupConfiguration.SCHEDULE_TICK_SECONDS))))
+						.andReturn(future1).andReturn(future2);
+		expect(future1.cancel(false)).andReturn(true).times(1);
+		expect(future2.cancel(false)).andReturn(true).times(1);
+		replayAll();
+		replay(scheduler, future1, future2);
+
+		BluetoothSetupConfiguration s = new BluetoothSetupConfiguration(opModesService, scheduler,
+				systemHealthService);
+		s.setCommand(tmpFile.getAbsolutePath());
+		s.setClock(Clock.fixed(START, ZoneOffset.UTC));
+		s.setWatchdogIntervalSeconds(0);
+		s.setAlwaysOn(false);
+		s.setSchedule("Mon-Fri 07:00-18:00");
+		s.setTimeZone("UTC");
+		s.startup(); // registers future1
+
+		s.setAlwaysOn(true);
+		s.configurationChanged(Map.of()); // cancels future1, radio on
+		assertThat(radioState(), is(true));
+
+		s.setAlwaysOn(false);
+		s.configurationChanged(Map.of()); // registers future2, radio off (00:00 UTC)
+		assertThat(radioState(), is(false));
+
+		s.setSchedule("Mon-Fri 25:00-26:00");
+		s.configurationChanged(Map.of()); // invalid: cancels future2, stays off
+		assertThat(radioState(), is(false));
+		assertThat(s.currentStatus().getScheduleError(), is(notNullValue()));
+
+		s.shutdown();
+		verify(scheduler, future1, future2);
+	}
+
+	@Test
+	public void watchdogDisabled_scheduleStillTicks() throws IOException {
+		expect(opModesService.isOperationalModeActive(OP_MODE)).andReturn(false).anyTimes();
+		TaskScheduler scheduler = EasyMock.createMock(TaskScheduler.class);
+		@SuppressWarnings({ "unchecked", "rawtypes" })
+		ScheduledFuture future = EasyMock.createMock(ScheduledFuture.class);
+		expect(scheduler.scheduleWithFixedDelay(anyObject(Runnable.class), anyObject(Instant.class),
+				eq(Duration.ofSeconds(BluetoothSetupConfiguration.SCHEDULE_TICK_SECONDS))))
+						.andReturn(future).times(1);
+		expect(future.cancel(false)).andReturn(true).times(1);
+		replayAll();
+		replay(scheduler, future);
+
+		BluetoothSetupConfiguration s = new BluetoothSetupConfiguration(opModesService, scheduler,
+				systemHealthService);
+		s.setCommand(tmpFile.getAbsolutePath());
+		s.setClock(Clock.fixed(START, ZoneOffset.UTC));
+		s.setAlwaysOn(false);
+		s.setWatchdogIntervalSeconds(0);
+		s.setSchedule("Mon-Fri 07:00-18:00");
+		s.setTimeZone("UTC");
+		s.startup();
+		s.shutdown();
+
+		verify(scheduler, future);
 	}
 
 }
