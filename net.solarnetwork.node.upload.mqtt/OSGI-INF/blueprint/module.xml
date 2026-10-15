@@ -18,6 +18,7 @@
 	
 	<osgix:cm-properties id="cfg" persistent-id="net.solarnetwork.node.upload.mqtt">
 		<beans:prop key="client.keepAliveInterval">60</beans:prop>
+		<beans:prop key="client.maximumMessageSize">8192</beans:prop>
 	</osgix:cm-properties>
 
 	<ctx:property-placeholder properties-ref="cfg"/>
@@ -72,6 +73,7 @@
 		<argument ref="datumMetadataService"/>
 		<property name="executor" ref="executor"/>
 		<property name="mqttConfig.keepAliveSeconds" value="${client.keepAliveInterval}"/>
+		<property name="mqttConfig.maximumMessageSize" value="${client.maximumMessageSize}"/>
 		<property name="mqttConfig.optionalSslService" ref="sslService"/>
 		<property name="messageSource">
 			<bean class="org.springframework.context.support.ResourceBundleMessageSource">

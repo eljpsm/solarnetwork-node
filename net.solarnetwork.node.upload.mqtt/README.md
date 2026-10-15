@@ -31,6 +31,19 @@ will be persisted locally, to be picked up by the batch instruction service, the
 same as if this plugin were not installed. The batch instruction service is
 typically provided by the [Reactor Service][reactor.simple] plugin.
 
+# Configuration
+
+The following properties can be configured in an
+`/etc/solarnode/services/net.solarnetwork.node.upload.mqtt.cfg` file:
+
+| Property                    | Default | Description                                                                                                                                                                                                    |
+|:----------------------------|:--------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `client.keepAliveInterval`  | `60`    | The MQTT keep-alive (PING) interval, in seconds. Set to `0` to disable.                                                                                                                                        |
+| `client.maximumMessageSize` | `8192`  | The maximum MQTT message size, in bytes, for both published and received messages. Must be between `1` and `256000000`. Messages larger than this, such as large instruction results, cannot be sent via MQTT. |
+
+Increasing `client.maximumMessageSize` only helps if the SolarIn MQTT server also accepts messages
+of the configured size.
+
 [bulkjsonwebpost]: https://github.com/SolarNetwork/solarnetwork-node/tree/master/net.solarnetwork.node.upload.bulkjsonwebpost
 [reactor.simple]: https://github.com/SolarNetwork/solarnetwork-node/tree/master/net.solarnetwork.node.reactor.simple
 
