@@ -1,0 +1,15 @@
+2026-10-15 06:00:00 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 06:00:01 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 0 datum in 2ms
+2026-10-15 06:10:00 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 06:10:01 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 1 datum in 3ms
+2026-10-15 06:20:00 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+net.solarnetwork.node.io.modbus.ModbusException: Error reading from device.
+	at net.solarnetwork.node.io.modbus.nifty.NiftyModbusConnection.readWords(NiftyModbusConnection.java:300)
+	at net.solarnetwork.node.datum.modbus.ModbusDatumDataSource.readCurrentDatum(ModbusDatumDataSource.java:540)
+Caused by: java.io.IOException: Connect failed
+	at net.solarnetwork.node.io.modbus.nifty.tcp.NiftyTcpModbusNetwork.connect(NiftyTcpModbusNetwork.java:120)
+	... 10 more
+Caused by: java.net.NoRouteToHostException: No route to host
+	at java.base/sun.nio.ch.Net.connect0(Native Method)
+	... 12 more
+2026-10-15 06:20:01 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 2 datum in 4ms

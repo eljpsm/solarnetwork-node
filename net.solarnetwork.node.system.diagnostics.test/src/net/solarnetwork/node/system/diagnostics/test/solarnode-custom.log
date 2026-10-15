@@ -1,0 +1,3 @@
+06:00:00.000 [                main] ERROR .datum.modbus.ModbusDatumDataSource - Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+06:00:01.000 [                main] ERROR .datum.modbus.ModbusDatumDataSource - Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+06:00:02.000 [                main] ERROR .datum.modbus.ModbusDatumDataSource - Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host

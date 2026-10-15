@@ -1,0 +1,51 @@
+2026-10-14 06:00:00,005 INFO  o.modbus.nifty.tcp.NiftyTcpModbusNetwork; Modbus network started
+2026-10-14 07:00:00,000 WARN  o.modbus.nifty.tcp.NiftyTcpModbusNetwork; Connection to 192.168.20.33:502 lost; reconnecting
+2026-10-14 18:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 18:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 0 datum in 2ms
+2026-10-14 18:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 18:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 1 datum in 3ms
+2026-10-14 19:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 19:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 2 datum in 4ms
+2026-10-14 19:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 19:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 3 datum in 5ms
+2026-10-14 20:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 20:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 4 datum in 6ms
+2026-10-14 20:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 20:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 5 datum in 7ms
+2026-10-14 21:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 21:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 6 datum in 8ms
+2026-10-14 21:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 21:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 7 datum in 2ms
+2026-10-14 22:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 22:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 8 datum in 3ms
+2026-10-14 22:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 22:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 9 datum in 4ms
+2026-10-14 23:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 23:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 10 datum in 5ms
+2026-10-14 23:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-14 23:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 11 datum in 6ms
+2026-10-15 00:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 00:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 12 datum in 7ms
+2026-10-15 00:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 00:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 13 datum in 8ms
+2026-10-15 01:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 01:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 14 datum in 2ms
+2026-10-15 01:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 01:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 15 datum in 3ms
+2026-10-15 02:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 02:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 16 datum in 4ms
+2026-10-15 02:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 02:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 17 datum in 5ms
+2026-10-15 03:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 03:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 18 datum in 6ms
+2026-10-15 03:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 03:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 19 datum in 7ms
+2026-10-15 04:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 04:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 20 datum in 8ms
+2026-10-15 04:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 04:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 21 datum in 2ms
+2026-10-15 05:00:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 05:00:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 22 datum in 3ms
+2026-10-15 05:30:00,000 ERROR .node.datum.modbus.ModbusDatumDataSource; Communication problem reading source /SITE-C/INV/3 from Modbus device 192.168.20.33:502: No route to host
+2026-10-15 05:30:02,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Processed 23 datum in 4ms
+2026-10-15 05:55:00,000 INFO  arnetwork.node.runtime.DefaultDatumQueue; Rolling over

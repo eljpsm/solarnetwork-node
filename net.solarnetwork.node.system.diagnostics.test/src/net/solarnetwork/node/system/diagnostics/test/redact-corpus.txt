@@ -1,0 +1,61 @@
+# Redaction corpus: <planted secret(s), comma separated><TAB><log message>
+# Messages are derived from the SLF4J format strings of the named classes.
+# MqttUploadService:514 (INFO instruction parameter map)
+Mq77-Pass-Zeta	Instruction 98765 UpdateSetting received with parameters: {key=net.solarnetwork.node.upload.mqtt.MqttUploadService, type=mqttPassword, value=Mq77-Pass-Zeta}
+# MqttUploadService:562 (WARN raw instruction JSON)
+Upd8-Secret-Kappa	Unable to accept instruction JSON [{"id":98766,"topic":"UpdateSetting","instructionDate":1760480000123,"parameters":[{"name":"key","value":"net.solarnetwork.node.upload.mqtt.MqttUploadService"},{"name":"type","value":"mqttPassword"},{"name":"value","value":"Upd8-Secret-Kappa"}]}]: java.lang.IllegalArgumentException: Instruction topic not supported
+# MqttUploadService:437 (WARN instruction status toString with result parameters)
+H4sIAAAAAAAA/6VWW2/bNhT+K4Ke0Rk3Xq9Zp1L	Error posting instruction status BasicInstruction{topic=SystemConfiguration,id=81234567,instructorId=solarnetwork,status=BasicInstructionStatus{instructionId=81234567, instructionState=Completed, statusDate=2026-10-15T01:02:03.456Z, resultParameters={result=H4sIAAAAAAAA/6VWW2/bNhT+K4Ke0Rk3Xq9Zp1L}}} via MQTT @ mqtts://queue.solarnetwork.net:8883, will defer acknowledgement: timeout
+# MqttUploadService:440 (ERROR instruction status toString)
+Err-Post-Val-9921	Error posting instruction status BasicInstruction{topic=UpdateSetting,id=81234568,instructorId=solarnetwork,status=BasicInstructionStatus{instructionId=81234568, instructionState=Completed, statusDate=2026-10-15T01:02:04.001Z, resultParameters={message=Saved, value=Err-Post-Val-9921}}} via MQTT @ mqtts://queue.solarnetwork.net:8883: Connection lost
+# InstructorDatumFilterService:250 (WARN unhandled instruction parameters)
+IdF-Pw42-Hidn	Service [Instructor Datum Filter] instruction [UpdateSetting] was not handled; parameters: {key=[net.solarnetwork.node.upload.mqtt.MqttUploadService], type=[mqttPassword], value=[IdF-Pw42-Hidn]}
+# JdbcSettingDao:411 and :319 (WARN setting value and note)
+Jdbc-Sett1ng-Pw	SQL warning saving setting net.solarnetwork.node.upload.mqtt.MqttUploadService.mqttPassword to Jdbc-Sett1ng-Pw
+Jdbc-N0te-Secret	SQL warning saving setting solarnode.io.modbus.1.password note to Jdbc-N0te-Secret
+# JsonOwmClient:119 (WARN URL with appid)
+0f1e2d3c4b5a69788796a5b4c3d2e1f0	Error reading OpenWeatherMap URL [https://api.openweathermap.org/data/2.5/weather?id=2193733&mode=json&units=metric&appid=0f1e2d3c4b5a69788796a5b4c3d2e1f0]: 401 Unauthorized: [no body]
+# BasicWCClient:169 (WARN URL with apiKey)
+9a8b7c6d5e4f30211203f4e5d6c7b8a9	Communication error requesting IBM Weather API URL [https://api.weather.com/v3/wx/forecast/daily/5day?geocode=-36.85,174.76&language=en-US&format=json&units=m&apiKey=9a8b7c6d5e4f30211203f4e5d6c7b8a9]: 401 Unauthorized
+# XmlEGaugeClient:333 (WARN URL with user info)
+Pw4eGg-77ab-Xq	Error communicating with eGauge inverter at http://owner:Pw4eGg-77ab-Xq@egauge12345.local/cgi-bin/egauge?inst&tot: Connection refused (Connection refused)
+# MotionCameraControl:275 and :278 (ERROR URL with user info)
+M0tion-Cam-Pw	Communication error with motion camera 1 at http://admin:M0tion-Cam-Pw@localhost:8080: java.net.ConnectException: Connection refused
+M0tion-Req-Pw	Error response code received from motion camera 1 request http://admin:M0tion-Req-Pw@localhost:8080/1/action/snapshot: 401
+# DelimitedPriceDatumDataSource:235 (WARN URL with user info and query key)
+Dlm-Price-Pw1,Dlm-Query-Key8	Non-200 response 403 from [https://pricer:Dlm-Price-Pw1@prices.example.com/nz/latest.csv?region=OTA&key=Dlm-Query-Key8]; headers: 
+# WitsPriceDatumDataSource:278 and :263 (OAuth error bodies)
+Wits-Cl1ent-Sec	Error obtaining OAuth access token from [https://api.electricityinfo.co.nz/login/oauth2/token]: com.github.scribejava.core.model.OAuth2AccessTokenErrorResponse: {"error":"invalid_client","error_description":"client secret Wits-Cl1ent-Sec does not match"}
+Wits-Acc3ss-Tok,Wits-Refr3sh-Tok	Error refreshing OAuth access token from [https://api.electricityinfo.co.nz/login/oauth2/token]: com.github.scribejava.core.exceptions.OAuthException: Response body is incorrect. Can't extract a 'expires_in' from this: 'access_token=Wits-Acc3ss-Tok&token_type=bearer&refresh_token=Wits-Refr3sh-Tok'
+# WebServiceControllerSupport:385 and :408 (WARN request description)
+Ws-Req-P4ss99	HttpMessageNotReadableException in request uri=/a/settings/manage/update?key=net.solarnetwork.node.upload.mqtt&mqttPassword=Ws-Req-P4ss99: JSON parse error: Unexpected character ('x' (code 120))
+correct horse battery staple	DataIntegrityViolationException in request uri=/api/v1/sec/wifi/configure?ssid=HomeNet&passphrase=correct horse battery staple: could not execute statement
+Pin-Wifi-8877	HttpMessageNotReadableException in request uri=/a/wifi/save?ssid=HomeNet&pin=Pin-Wifi-8877: Required request body is missing
+# CmdlineSystemService:438 (ERROR stderr lines from OS commands)
+Cmd-Curl-Pw66	curl: (22) The requested URL returned error: 401 for https://solar:Cmd-Curl-Pw66@nas.local/upload/backup.tgz
+Wpa-Psk-2468	Failed to apply WiFi settings: ssid=HomeNet psk=Wpa-Psk-2468 country=NZ
+Wpa7Pwx	Line 6: Invalid passphrase length 7 (expected: 8..63) 'Wpa7Pwx'.
+Acc-Tok-Colon77	sn-upload: using access token: Acc-Tok-Colon77
+Json-Pw-3344	  "password": "Json-Pw-3344",
+Quot3d-Pw-55	Applying setting mqttPassword="Quot3d-Pw-55" failed
+Sibl1ng-Val-88	setting name=apiKey value=Sibl1ng-Val-88 rejected
+# SimpleInstructionExecutionService:95 (ERROR handler failure)
+Inst-Hndl-P4ss	Error handling instruction 4567 [UpdateSetting] in handler net.solarnetwork.node.setup.impl.DefaultSetupService@6d4b1c02: Failed to connect to mqtts://node:Inst-Hndl-P4ss@queue.solarnetwork.net:8883
+# CASettingsService:652 (INFO audit of setting updates)
+Aud1t-Secr3t-Q	Updating settings for factory [net.solarnetwork.node.upload.mqtt.MqttUploadService] instance [1]: {updates: [mqttPassword=Aud1t-Secr3t-Q, mqttUsername=node123]}
+Owm-Audit-K3y	Updating settings for factory [net.solarnetwork.node.datum.weather.owm] instance [2]: {cleanPatterns: [^props\[\d+\]], updates: [apiKey=Owm-Audit-K3y, locationIdentifier=2193733]}
+# HTTP authorization values echoed in errors
+Br34rerTok3nPayload	Error publishing to https://hooks.example.com/notify: 401 Unauthorized; request headers: Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.Br34rerTok3nPayload.Sig9
+Bare-Brr-T0k9	Retrying request with Bearer Bare-Brr-T0k9 after 401
+Snws2CredTok9,5nw5s1g0aa1bb2cc3dd4ee5ff	Signature mismatch for Authorization header [SNWS2 Credential=Snws2CredTok9,SignedHeaders=date;host;x-sn-date,Signature=5nw5s1g0aa1bb2cc3dd4ee5ff]
+c29sYXI6QmFzaWMtUHc5OQ==	HTTP 401 from https://pvoutput.org/service/r2/addstatus.jsp; Authorization: Basic c29sYXI6QmFzaWMtUHc5OQ==
+YmFzaWMyOlNlY3JldDI=	Using credentials Basic YmFzaWMyOlNlY3JldDI=
+AKIAEXAMPLE77889900,a1b2c3amzSig9f8e7d	Error uploading to S3 https://bucket.s3.amazonaws.com/backups/node-7294.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAEXAMPLE77889900%2F20261016&X-Amz-Signature=a1b2c3amzSig9f8e7d: 403 Forbidden
+AmzSess-Tok-4455	S3 response headers: X-Amz-Security-Token: AmzSess-Tok-4455, x-amz-request-id: 4442587FB7D0A2F9
+C00kie-Sess-777	Unexpected response headers: Set-Cookie: JSESSIONID=C00kie-Sess-777; Path=/; HttpOnly
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASC	Error loading certificate: -----BEGIN PRIVATE KEY-----MIIEvQIBADANBgkqhkiG9w0BAQEFAASC
+# Sdk2S3Client:151 and :161 (WARN AWS access key ID after a bare keyword)
+AKIAQ7WERTY4UIOPASD8	Error closing S3Client for us-west-2/my-node-backups token AKIAQ7WERTY4UIOPASD8
+ASIAZ3XCVB7NMLKJ5HGF	Error closing S3Client for ap-southeast-2/solarnode-bak token ASIAZ3XCVB7NMLKJ5HGF: java.io.IOException: closed
+# Credential after a bare keyword and a space
+Zq9XwLmPq7RtYvB3	Handshake failed using secret Zq9XwLmPq7RtYvB3 for peer
